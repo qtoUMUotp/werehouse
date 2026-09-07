@@ -59,6 +59,10 @@
   .pane-h:hover{color:var(--tx)}
   .pcaret{font-size:10px;color:var(--tx3);width:11px;flex:0 0 auto}
   .pane-b.folded{display:none}
+  input[type=color]{
+    width:36px;height:24px;padding:1px;border:1px solid var(--bd);border-radius:5px;
+    background:var(--bg);cursor:pointer;
+  }
   .pane-b{overflow:auto;padding:8px;flex:1;min-height:0}
 
   #viewport{position:relative;flex:1;min-width:0;background:#fbfbf9}
@@ -315,6 +319,8 @@ const UNITS = { mm:1, cm:10, m:1000 };
 const UNIT_LABEL = { mm:'mm', cm:'cm', m:'m' };
 const TYPE_NAME = { container:'容器', item:'物品', blocker:'实体' };   // 实体 = 床/桌/墙等不常移动或只用于占位的物体
 const TYPE_COLOR = { container:0x378add, item:0xba7517, blocker:0x888780 };
+/** 物体显示颜色：自定义色优先，否则按类型默认色 */
+const objColor = o => o.color || ('#' + TYPE_COLOR[o.type].toString(16).padStart(6, '0'));
 const LS_KEY = 'home-warehouse-v1';
 const SCHEMA = 1;
 
@@ -410,17 +416,76 @@ const fmtVol = mm3 => {
    坐标约定：pos 是「最小角点」，不是中心。y 向上，y=0 为地面。
    物品的 pos 相对父容器原点；空腔只做归属与容量统计，不参与坐标变换。
    ============================================================ */
-function worldMin(o, seen = new Set()) {
-  if (!o.parentId || seen.has(o.id)) return { x:o.pos.x, y:o.pos.y, z:o.pos.z };
-  const p = getObj(o.parentId);
-  if (!p) return { x:o.pos.x, y:o.pos.y, z:o.pos.z };
-  seen.add(o.id);
-  const pm = worldMin(p, seen);
-  return { x: pm.x + o.pos.x, y: pm.y + o.pos.y, z: pm.z + o.pos.z };
+/* ---- 旋转支持 ----
+   约定：size 是「内禀尺寸」（未旋转），rot ∈ 0..3 为绕竖直轴的 90° 步数；
+   pos 是「旋转后足迹」的最小角点，在父级的内禀空间里。
+   子物体 / 空腔的坐标都存在容器的内禀空间 —— 容器旋转时内容物跟着转。
+   rot=0 时与旧版语义完全一致，旧存档直接兼容。 */
+function normRot(r) { return (((r | 0) % 4) + 4) % 4; }
+/** 旋转后的足迹尺寸（在父级内禀空间里的占位宽/长） */
+function footDims(o) {
+  return normRot(o.rot) % 2 ? { w:o.size.d, d:o.size.w } : { w:o.size.w, d:o.size.d };
 }
-function worldAABB(o) {
-  const m = worldMin(o);
-  return { min:m, max:{ x:m.x+o.size.w, y:m.y+o.size.h, z:m.z+o.size.d } };
+/** 内禀局部点 -> 父级内禀空间（w/d 为自身内禀尺寸） */
+function rotLocalToParent(lx, ly, lz, rot, w, d) {
+  switch (normRot(rot)) {
+    case 1:  return { x: lz,     y: ly, z: w - lx };
+    case 2:  return { x: w - lx, y: ly, z: d - lz };
+    case 3:  return { x: d - lz, y: ly, z: lx     };
+    default: return { x: lx, y: ly, z: lz };
+  }
+}
+/** 父级内禀空间点 -> 自身内禀空间（rotLocalToParent 的逆变换） */
+function rotParentToLocal(px, py, pz, rot, w, d) {
+  switch (normRot(rot)) {
+    case 1:  return { x: w - pz, y: py, z: px     };
+    case 2:  return { x: w - px, y: py, z: d - pz };
+    case 3:  return { x: pz,     y: py, z: d - px };
+    default: return { x: px, y: py, z: pz };
+  }
+}
+/** 内禀空间点 -> 世界坐标（沿父链逐级变换） */
+function localPtToWorld(owner, p) {
+  let pt = { x:p.x, y:p.y, z:p.z };
+  let cur = owner, guard = 0;
+  while (cur && guard++ < 64) {
+    const t = rotLocalToParent(pt.x, pt.y, pt.z, cur.rot, cur.size.w, cur.size.d);
+    pt = { x: t.x + cur.pos.x, y: t.y + cur.pos.y, z: t.z + cur.pos.z };
+    cur = cur.parentId ? getObj(cur.parentId) : null;
+  }
+  return pt;
+}
+/** 世界坐标点 -> 内禀空间（沿父链逆变换） */
+function worldToLocalPt(owner, wp) {
+  const chain = [];
+  let cur = owner, guard = 0;
+  while (cur && guard++ < 64) { chain.push(cur); cur = cur.parentId ? getObj(cur.parentId) : null; }
+  let p = { x:wp.x, y:wp.y, z:wp.z };
+  for (let i = chain.length - 1; i >= 0; i--) {
+    const a = chain[i];
+    p = rotParentToLocal(p.x - a.pos.x, p.y - a.pos.y, p.z - a.pos.z, a.rot, a.size.w, a.size.d);
+  }
+  return p;
+}
+/** 内禀空间的 AABB 变换到世界（有旋转时反射会交换对角点，取两点映像的分量极值） */
+function boxToWorld(owner, bmin, bsize) {
+  const c1 = localPtToWorld(owner, bmin);
+  const c2 = localPtToWorld(owner, { x:bmin.x + bsize.w, y:bmin.y + bsize.h, z:bmin.z + bsize.d });
+  return {
+    min: { x: Math.min(c1.x,c2.x), y: Math.min(c1.y,c2.y), z: Math.min(c1.z,c2.z) },
+    max: { x: Math.max(c1.x,c2.x), y: Math.max(c1.y,c2.y), z: Math.max(c1.z,c2.z) },
+  };
+}
+function worldAABB(o) { return boxToWorld(o, { x:0, y:0, z:0 }, o.size); }
+function worldMin(o) { return worldAABB(o).min; }
+/** 绕自身竖直中心轴转 90°（俯视顺时针）后的新 pos；内容物在内禀空间，自动跟着转 */
+function rotatedPos(o) {
+  const f0 = footDims(o);
+  const cx = o.pos.x + f0.w / 2, cz = o.pos.z + f0.d / 2;
+  const rot = normRot((o.rot || 0) + 1);
+  const odd = rot % 2 === 1;
+  const nw = odd ? o.size.d : o.size.w, nd = odd ? o.size.w : o.size.d;
+  return { x: cx - nw / 2, y: o.pos.y, z: cz - nd / 2 };
 }
 function volume(o) { return o.size.w * o.size.h * o.size.d; }
 function isDescendant(id, ancestorId) {
@@ -489,9 +554,7 @@ function childrenOf(id) { return state.objects.filter(o => o.parentId === id); }
 function rootObjects() { return state.objects.filter(o => !o.parentId); }
 
 function cavityWorldRange(container, cav) {
-  const wm = worldMin(container);
-  const min = { x: wm.x + cav.pos.x, y: wm.y + cav.pos.y, z: wm.z + cav.pos.z };
-  return { min, max:{ x:min.x+cav.size.w, y:min.y+cav.size.h, z:min.z+cav.size.d } };
+  return boxToWorld(container, cav.pos, cav.size);   // 空腔随容器旋转
 }
 /** 体积 + 长宽比 -> 三边 */
 function sizeFromVolume(vol, ratio) {
@@ -624,8 +687,8 @@ function buildSplitCavities(container, mode, opts) {
 function reassignChildren(container) {
   let n = 0;
   for (const ch of childrenOf(container.id)) {
-    const wm = worldMin(ch);
-    const c = { x: wm.x + ch.size.w/2, y: wm.y + ch.size.h/2, z: wm.z + ch.size.d/2 };
+    const bb = worldAABB(ch);
+    const c = { x:(bb.min.x+bb.max.x)/2, y:(bb.min.y+bb.max.y)/2, z:(bb.min.z+bb.max.z)/2 };
     const hit = findCavityAt(c, ch.id);
     if (hit && hit.container.id === container.id) { ch.cavityId = hit.cav.id; n++; }
     else ch.cavityId = null;
@@ -649,17 +712,20 @@ function isStray(o) {
 function rescueObjects(list) {
   const ids = new Set(list.map(o => o.id));
   const roots = list.filter(o => !o.parentId || !ids.has(o.parentId));
-  const items = roots.slice().sort((a, b) =>
-    (b.size.w * b.size.d) - (a.size.w * a.size.d));
+  const items = roots.slice().sort((a, b) => {
+    const fa = footDims(a), fb = footDims(b);
+    return (fb.w * fb.d) - (fa.w * fa.d);
+  });
   const gap = 200;
   let curX = RESCUE_ZONE.x, curZ = RESCUE_ZONE.z;
   let rowDepth = 0, layerY = 0, layerHeight = 0;
   let n = 0;
   for (const o of items) {
-    if (curX + o.size.w > RESCUE_ZONE.x + RESCUE_ZONE.w) {
+    const f = footDims(o);
+    if (curX + f.w > RESCUE_ZONE.x + RESCUE_ZONE.w) {
       curX = RESCUE_ZONE.x; curZ += rowDepth + gap; rowDepth = 0;
     }
-    if (curZ + o.size.d > RESCUE_ZONE.z + RESCUE_ZONE.d) {
+    if (curZ + f.d > RESCUE_ZONE.z + RESCUE_ZONE.d) {
       curX = RESCUE_ZONE.x; curZ = RESCUE_ZONE.z; rowDepth = 0;
       layerY += layerHeight + gap; layerHeight = 0;
     }
@@ -667,8 +733,8 @@ function rescueObjects(list) {
     o.parentId = null; o.cavityId = null;
     o.pos = { x: curX, y: layerY, z: curZ };
     layerHeight = Math.max(layerHeight, o.size.h);
-    rowDepth = Math.max(rowDepth, o.size.d);
-    curX += o.size.w + gap;
+    rowDepth = Math.max(rowDepth, f.d);
+    curX += f.w + gap;
     n++;
   }
   return n;
@@ -710,12 +776,14 @@ function makeObj(type, opt = {}) {
     parentId: opt.parentId || null,
     cavityId: opt.cavityId || null,
     pos: opt.pos ? { ...opt.pos } : { x:0, y:0, z:0 },
+    rot: normRot(opt.rot || 0),
     size,
     ratio: opt.ratio ? { ...opt.ratio } : { w:1, h:1, d:1 },
     tags: opt.tags || [],
     expiry: opt.expiry || null,
     remindBefore: opt.remindBefore ?? 7,
     cycle: opt.cycle || null,
+    color: opt.color || null,
     cavities: type === 'container' ? (opt.cavities || []) : [],
     createdAt: Date.now(),
   };
@@ -848,17 +916,19 @@ function buildScene() {
 
   for (const o of state.objects) {
     if (!visible.has(o.id)) continue;
-    const wm = worldMin(o);
+    const bb = worldAABB(o);
+    const cx = (bb.min.x + bb.max.x) / 2, cy = (bb.min.y + bb.max.y) / 2, cz = (bb.min.z + bb.max.z) / 2;
     const isContainer = o.type === 'container';
     const mat = new THREE.MeshLambertMaterial({
-      color: TYPE_COLOR[o.type],
+      color: objColor(o),
       transparent: true,
       opacity: isContainer ? 0.22 : (o.type === 'blocker' ? 0.55 : 0.92),
       depthWrite: !isContainer,
     });
     const mesh = new THREE.Mesh(boxGeo, mat);
-    mesh.scale.set(o.size.w, o.size.h, o.size.d);
-    mesh.position.set(wm.x + o.size.w/2, wm.y + o.size.h/2, wm.z + o.size.d/2);
+    mesh.scale.set(o.size.w, o.size.h, o.size.d);          // 内禀尺寸
+    mesh.rotation.y = normRot(o.rot) * Math.PI / 2;        // 旋转由 transform 承担
+    mesh.position.set(cx, cy, cz);                          // 位置取世界 AABB 中心
     mesh.userData.id = o.id;
     const operable = isOperable(o);
     const dim = !operable || (hs && !hs.has(o.id));
@@ -878,32 +948,35 @@ function buildScene() {
     contentGroup.add(lead);
 
     const label = makeLabel(o.name, dim ? 'dim' : '');
-    label.position.set(
-      wm.x + o.size.w/2,
-      wm.y + o.size.h/2 + off,
-      wm.z + o.size.d/2
-    );
+    label.position.set(cx, cy + off, cz);
     contentGroup.add(label);
 
-    // 容器空腔虚线框
-    const cavityLines = [];
-    if (isContainer && o.cavities.length) {
-      for (const c of o.cavities) {
-        const cm = { x: wm.x + c.pos.x, y: wm.y + c.pos.y, z: wm.z + c.pos.z };
-        const g = new THREE.BoxGeometry(c.size.w, c.size.h, c.size.d);
-        const eg = new THREE.EdgesGeometry(g);
-        const line = new THREE.LineSegments(eg, new THREE.LineBasicMaterial({ color:0x0f6e56 }));
-        line.position.set(cm.x + c.size.w/2, cm.y + c.size.h/2, cm.z + c.size.d/2);
-        helpersGroup.add(line);
-        cavityLines.push(line);
-        g.dispose();
-      }
-    }
-
-    meshMap.set(o.id, { mesh, label, lead, cavityLines, obj:o, labelOffset: off });
+    meshMap.set(o.id, { mesh, label, lead, cavityLines: [], obj:o, labelOffset: off });
+    rebuildCavityLines(o, meshMap.get(o.id));
   }
   updateLabelVisibility();
   updateSelectionBox();
+}
+
+/** 重建某容器的空腔虚线框：空腔在容器内禀空间，世界框随容器旋转走 */
+function rebuildCavityLines(o, rec) {
+  (rec.cavityLines || []).forEach(l => {
+    helpersGroup.remove(l);
+    if (l.geometry) l.geometry.dispose();
+    if (l.material) l.material.dispose();
+  });
+  rec.cavityLines = [];
+  if (o.type !== 'container') return;
+  for (const c of o.cavities) {
+    const r = cavityWorldRange(o, c);
+    const g = new THREE.BoxGeometry(r.max.x - r.min.x, r.max.y - r.min.y, r.max.z - r.min.z);
+    const eg = new THREE.EdgesGeometry(g);
+    const line = new THREE.LineSegments(eg, new THREE.LineBasicMaterial({ color:0x0f6e56 }));
+    line.position.set((r.min.x + r.max.x)/2, (r.min.y + r.max.y)/2, (r.min.z + r.max.z)/2);
+    helpersGroup.add(line);
+    rec.cavityLines.push(line);
+    g.dispose();
+  }
 }
 
 function updateLabelVisibility() {
@@ -1003,14 +1076,14 @@ renderer.domElement.addEventListener('pointerdown', e => {
 
   const o = getObj(id);
   if (!isOperable(o)) return;
-  const wm = worldMin(o);
+  const bb = worldAABB(o);
   const plane = new THREE.Plane();
-  const anchor = new THREE.Vector3(wm.x + o.size.w/2, wm.y, wm.z + o.size.d/2);
+  const anchor = new THREE.Vector3((bb.min.x+bb.max.x)/2, bb.min.y, (bb.min.z+bb.max.z)/2);
   // 不再使用 Alt：Windows 下 Alt 会把焦点交给窗口菜单栏，keyup 常常丢失，
   // 导致 Alt 逻辑上"卡住"，整个应用都无法键盘输入。改用 Shift + 可选升降锁定。
   const vertical = state.liftLock || e.shiftKey;
   if (!vertical) {
-    plane.set(new THREE.Vector3(0,1,0), -wm.y);
+    plane.set(new THREE.Vector3(0,1,0), -bb.min.y);
   } else {
     const n = new THREE.Vector3();
     camera.getWorldDirection(n); n.y = 0;
@@ -1025,8 +1098,8 @@ renderer.domElement.addEventListener('pointerdown', e => {
   drag = {
     id,
     plane, vertical,
-    grabOffset: new THREE.Vector3(start.x - wm.x, start.y - wm.y, start.z - wm.z),
-    last: { x: wm.x, y: wm.y, z: wm.z },
+    grabOffset: new THREE.Vector3(start.x - bb.min.x, start.y - bb.min.y, start.z - bb.min.z),
+    last: { x: bb.min.x, y: bb.min.y, z: bb.min.z },
     moved: false,
   };
   controls.enabled = false;
@@ -1092,7 +1165,7 @@ renderer.domElement.addEventListener('pointerup', e => {
   refreshAll(moved ? '移动 ' + movedName : null);
 });
 
-/** 把「目标世界最小角点」写回对象（自动处理父容器局部坐标 + 网格吸附） */
+/** 把「目标世界 AABB 最小角点」写回对象（父级可能带旋转，用对角点逆变换求局部足迹角点） */
 function applyDrag(wx, wy, wz) {
   const o = getObj(drag.id);
   if (!o) return;
@@ -1104,37 +1177,46 @@ function applyDrag(wx, wy, wz) {
     if (drag.vertical) nm.y = Math.round(nm.y / g) * g;
   }
   nm.y = Math.max(0, nm.y);
+  const bb = worldAABB(o);
+  const ext = { x: bb.max.x - bb.min.x, y: bb.max.y - bb.min.y, z: bb.max.z - bb.min.z };
   const p = o.parentId ? getObj(o.parentId) : null;
-  const base = p ? worldMin(p) : { x:0, y:0, z:0 };
-  o.pos = { x: nm.x - base.x, y: nm.y - base.y, z: nm.z - base.z };
+  if (!p) {
+    o.pos = { ...nm };
+  } else {
+    const a = worldToLocalPt(p, nm);
+    const b = worldToLocalPt(p, { x: nm.x + ext.x, y: nm.y + ext.y, z: nm.z + ext.z });
+    o.pos = { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), z: Math.min(a.z, b.z) };
+  }
   syncMesh(o);
 }
 
 /** 松手：落地吸附 + 空腔归属 */
 function finishDrop(o) {
-  let wm = worldMin(o);
+  let bb = worldAABB(o);
   if (state.snapSupport) {
-    const sy = findSupportY(wm, o.size, o.id);
-    if (Math.abs(sy - wm.y) > 0.5) {
-      wm = { ...wm, y: sy };
+    const sy = findSupportY(bb.min, { w: bb.max.x-bb.min.x, h: o.size.h, d: bb.max.z-bb.min.z }, o.id);
+    if (Math.abs(sy - bb.min.y) > 0.5) {
+      const dy = sy - bb.min.y;
+      bb = { min: { ...bb.min, y: sy }, max: { x: bb.max.x, y: bb.max.y + dy, z: bb.max.z } };
     }
   }
-  const center = { x: wm.x + o.size.w/2, y: wm.y + o.size.h/2, z: wm.z + o.size.d/2 };
+  const center = { x:(bb.min.x+bb.max.x)/2, y:(bb.min.y+bb.max.y)/2, z:(bb.min.z+bb.max.z)/2 };
   const hit = findCavityAt(center, o.id);
   // 双保险：即便上面漏了，也绝不允许把自己挂进自己或自己的后代
   const wouldCycle = hit && (hit.container.id === o.id || isDescendant(hit.container.id, o.id));
   if (hit && !wouldCycle) {
-    const cw = worldMin(hit.container);
+    const a = worldToLocalPt(hit.container, bb.min);
+    const b = worldToLocalPt(hit.container, bb.max);
     o.parentId = hit.container.id;
     o.cavityId = hit.cav.id;
-    o.pos = { x: wm.x - cw.x, y: wm.y - cw.y, z: wm.z - cw.z };
+    o.pos = { x: Math.min(a.x,b.x), y: Math.min(a.y,b.y), z: Math.min(a.z,b.z) };
   } else if (o.parentId) {
     // 拖出所有空腔 -> 脱离父级，转为世界坐标
     o.parentId = null;
     o.cavityId = null;
-    o.pos = { x: wm.x, y: wm.y, z: wm.z };
+    o.pos = { ...bb.min };
   } else {
-    o.pos = { x: wm.x, y: wm.y, z: wm.z };
+    o.pos = { ...bb.min };
   }
   syncMesh(o);
 }
@@ -1143,12 +1225,14 @@ function finishDrop(o) {
 function syncMesh(o) {
   const rec = meshMap.get(o.id);
   if (rec) {
-    const wm = worldMin(o);
-    const cx = wm.x + o.size.w/2, cy = wm.y + o.size.h/2, cz = wm.z + o.size.d/2;
+    const bb = worldAABB(o);
+    const cx = (bb.min.x + bb.max.x)/2, cy = (bb.min.y + bb.max.y)/2, cz = (bb.min.z + bb.max.z)/2;
     rec.mesh.position.set(cx, cy, cz);
     rec.mesh.scale.set(o.size.w, o.size.h, o.size.d);
+    rec.mesh.rotation.y = normRot(o.rot) * Math.PI / 2;
     if (rec.lead) rec.lead.position.set(cx, cy, cz);
     if (rec.label) rec.label.position.set(cx, cy + rec.labelOffset, cz);
+    if (o.type === 'container') rebuildCavityLines(o, rec);
   }
   for (const ch of childrenOf(o.id)) syncMesh(ch);
 }
@@ -1159,6 +1243,19 @@ function select(id) {
   updateLabelVisibility();
   renderTree();
   renderInspector();
+}
+
+/** 旋转选中物体 90°（俯视顺时针）：中心不动，内容物在内禀空间自动跟着转 */
+function rotateObj(o) {
+  if (!o) return;
+  o.pos = rotatedPos(o);
+  o.rot = normRot((o.rot || 0) + 1);
+  if (state.snapGrid) {
+    const g = state.grid;
+    o.pos.x = Math.round(o.pos.x / g) * g;
+    o.pos.z = Math.round(o.pos.z / g) * g;
+  }
+  refreshAll('旋转 ' + o.name);
 }
 
 /* ============================================================
@@ -1250,7 +1347,7 @@ function renderTree() {
 
       const dot = document.createElement('span');
       dot.className = 'dot';
-      dot.style.background = '#' + TYPE_COLOR[o.type].toString(16).padStart(6,'0');
+      dot.style.background = objColor(o);
       row.appendChild(dot);
 
       const nm = document.createElement('span');
@@ -1350,7 +1447,7 @@ function renderInspector() {
   const o = state.selectedId ? getObj(state.selectedId) : null;
   if (!o) {
     host.innerHTML = '<div class="empty">未选中任何物体<br><br>' +
-      '左键点选，按住左键拖动；<br>拖动时按住 Alt 可上下移动。</div>';
+      '左键点选，按住左键拖动；<br>拖动时按住 Shift 可上下移动，<br>选中后按 R 旋转 90°。</div>';
     return;
   }
   host.innerHTML = '';
@@ -1381,13 +1478,43 @@ function renderInspector() {
       (o.cavityId ? ' 的 ' + (getObj(o.parentId)?.cavities.find(c => c.id === o.cavityId)?.name || '空腔') : '') : '　·　顶层');
   host.appendChild(trow);
 
+  // 颜色
+  const cwrap = document.createElement('div');
+  cwrap.style.cssText = 'display:flex;gap:6px;align-items:center';
+  const cIn = document.createElement('input');
+  cIn.type = 'color';
+  cIn.value = objColor(o);
+  cIn.title = '自定义该物体在 3D 场景与结构树中的颜色';
+  cIn.onchange = () => { o.color = cIn.value; buildScene(); renderTree(); commit('染色 ' + o.name); };
+  const cReset = document.createElement('button');
+  cReset.textContent = '默认';
+  cReset.title = '恢复按类型显示的默认颜色';
+  cReset.onclick = () => { delete o.color; buildScene(); renderTree(); commit('恢复颜色 ' + o.name); };
+  cwrap.appendChild(cIn);
+  cwrap.appendChild(cReset);
+  mkField('颜色', cwrap);
+
+  // 旋转
+  const rotWrap = document.createElement('div');
+  rotWrap.style.cssText = 'display:flex;gap:6px;align-items:center';
+  const rotBtn = document.createElement('button');
+  rotBtn.textContent = '顺时针 90°';
+  rotBtn.title = '绕竖直中心轴旋转 90°，容器内的东西跟着一起转（快捷键 R）';
+  rotBtn.onclick = () => rotateObj(o);
+  const rotHint = document.createElement('span');
+  rotHint.className = 'hint';
+  rotHint.textContent = '当前 ' + normRot(o.rot) * 90 + '°';
+  rotWrap.appendChild(rotBtn);
+  rotWrap.appendChild(rotHint);
+  mkField('旋转', rotWrap);
+
   // 尺寸
   const g = document.createElement('div');
   g.className = 'grp';
   g.innerHTML = '<div class="grp-t">尺寸（' + UNIT_LABEL[state.unit] + '）</div>';
   const r3 = document.createElement('div');
   r3.className = 'row3';
-  [['w','宽'],['h','高'],['d','深']].forEach(([k, lb]) => {
+  [['w','宽'],['h','高'],['d','长']].forEach(([k, lb]) => {
     const f = document.createElement('div');
     f.className = 'fld';
     const s = document.createElement('span'); s.textContent = lb;
@@ -1633,7 +1760,7 @@ function renderInspector() {
 
       const sr = document.createElement('div');
       sr.className = 'row3';
-      [['w','宽'],['h','高'],['d','深']].forEach(([k, lb]) => {
+      [['w','宽'],['h','高'],['d','长']].forEach(([k, lb]) => {
         const f = document.createElement('div');
         f.className = 'fld';
         const s = document.createElement('span'); s.textContent = lb;
@@ -1701,7 +1828,7 @@ function renderHud() {
   const o = state.selectedId ? getObj(state.selectedId) : null;
   $('#hud').innerHTML =
     (state.liftLock ? '<b>拖动</b> = 上下移动（升降锁定已开）' : '拖动 = 水平移动　·　<b>Shift + 拖动</b> = 上下移动') + '　·　右键拖动 = 旋转视角　·　滚轮 = 缩放<br>' +
-    '<b>Ctrl+Z</b> 撤销　·　<b>F</b> 定位选中　·　<b>Esc</b> 取消选中并释放焦点　·　东西拖不见了点<b>全景</b>或<b>召回</b><br>' +
+    '<b>Ctrl+Z</b> 撤销　·　<b>R</b> 旋转 90°　·　<b>F</b> 定位选中　·　<b>Esc</b> 取消选中并释放焦点　·　东西拖不见了点<b>全景</b>或<b>召回</b><br>' +
     '网格 ' + state.grid + 'mm' + (state.snapGrid ? '（开）' : '（关）') +
     '　·　落地吸附 ' + (state.snapSupport ? '开' : '关') +
     (state.opMode !== 'all' ? '　·　<b>只操作' + OP_LABEL[state.opMode] + '</b>' : '') +
@@ -1860,6 +1987,7 @@ function deserialize(data) {
   state.objects = data.objects.map(o => ({
     ...o,
     pos: { ...o.pos }, size: { ...o.size },
+    rot: normRot(o.rot),
     ratio: o.ratio ? { ...o.ratio } : { w:1,h:1,d:1 },
     tags: o.tags || [],
     cavities: (o.cavities || []).map(c => ({ ...c, pos:{ ...c.pos }, size:{ ...c.size } })),
@@ -1890,7 +2018,7 @@ function seed() {
 
   const wallA = makeObj('blocker', { name:'承重墙 · 北', size:{ w:4000, h:2600, d:200 }, pos:{ x:0, y:0, z:0 } });
   const wallB = makeObj('blocker', { name:'承重墙 · 西', size:{ w:200, h:2600, d:3600 }, pos:{ x:0, y:0, z:0 } });
-  const bed = makeObj('blocker', { name:'床（实体）', size:{ w:1800, h:550, d:2000 }, pos:{ x:2600, y:0, z:400 } });
+  const bed = makeObj('blocker', { name:'床（实体）', size:{ w:1800, h:550, d:2000 }, pos:{ x:2600, y:0, z:400 }, color:'#9c7b5a' });
   state.objects.push(wallA, wallB, bed);
 
   const shelf = makeObj('container', {
@@ -1916,6 +2044,9 @@ function seed() {
   });
   wardrobe.cavities = buildSplitCavities(wardrobe, 'y',
     { inset: 20, thickness: 20, nY: 3, weightsY: [3, 2, 2] }) || [];
+  // 演示旋转：衣柜横着放（占位变 600 宽），里面的衣物跟着一起转
+  wardrobe.rot = 1;
+  wardrobe.pos = rotatedPos(wardrobe);
   state.objects.push(wardrobe);
 
   const put = (idx, name, size, tags) => {
@@ -2291,7 +2422,8 @@ addEventListener('keydown', e => {
     closeAsk(false); state.focusId = null; select(null); refreshAll(); releaseFocus(); return;
   }
   if (e.key === '/' ) { e.preventDefault(); const qi = document.getElementById('q'); if (qi) { qi.focus(); qi.select(); } return; }
-  if (e.key === 'f' || e.key === 'F') { const o = state.selectedId ? getObj(state.selectedId) : null; if (o) focusCameraOn(o); }
+  if (e.key === 'f' || e.key === 'F') { const o = state.selectedId ? getObj(state.selectedId) : null; if (o) focusCameraOn(o); return; }
+  if (e.key === 'r' || e.key === 'R') { rotateObj(state.selectedId ? getObj(state.selectedId) : null); }
 });
 
 /* ---- 其他作品（数据驱动：加作品只需往这个数组里添一项，不用动任何其他代码） ---- */
