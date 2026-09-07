@@ -1,0 +1,2426 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="2eTejiiAcLrwDDGj0weHL7">
+<head data-page-node-id="qRSPnVKwemZZM2PbIE16ro">
+<meta charset="UTF-8" data-page-node-id="bjFLskBDAhJkLmoiVVcI54">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="DY3XWPKCtINzikCBeZfy7B">
+<title>家庭仓库管理 · 原型</title>
+<style>
+  :root{
+    --bg:#ffffff; --bg2:#f7f7f5; --bg3:#f1efe8;
+    --tx:#2c2c2a; --tx2:#5f5e5a; --tx3:#888780;
+    --bd:#e3e1da; --bd2:#d3d1c7;
+    --acc:#185fa5; --acc-bg:#e6f1fb;
+    --warn:#854f0b; --warn-bg:#faeeda;
+    --ok:#3b6d11; --ok-bg:#eaf3de;
+    --r:8px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font:13px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+    color:var(--tx); background:var(--bg2); overflow:hidden;
+  }
+  #app{display:flex;flex-direction:column;height:100%}
+
+  #toolbar{
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    padding:8px 12px;background:var(--bg);border-bottom:1px solid var(--bd);
+  }
+  #toolbar .sep{width:1px;height:20px;background:var(--bd2);margin:0 4px}
+  #toolbar .grow{flex:1}
+  .brand{font-weight:500;font-size:14px;margin-right:4px}
+
+  button{
+    font:inherit;font-size:12px;padding:5px 10px;border:1px solid var(--bd2);
+    background:var(--bg);color:var(--tx);border-radius:6px;cursor:pointer;
+  }
+  button:hover{background:var(--bg3)}
+  button:active{background:var(--bd)}
+  button.on{background:var(--acc-bg);border-color:var(--acc);color:var(--acc)}
+  button.danger:hover{background:#fcebeb;border-color:#e24b4a;color:#a32d2d}
+
+  select,input[type=text],input[type=number],input[type=date]{
+    font:inherit;font-size:12px;padding:4px 6px;border:1px solid var(--bd2);
+    border-radius:6px;background:var(--bg);color:var(--tx);
+  }
+  input:focus,select:focus{outline:none;border-color:var(--acc)}
+  label.f{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--tx2)}
+
+  #main{display:flex;flex:1;min-height:0}
+  aside{background:var(--bg);display:flex;flex-direction:column;min-height:0}
+  #left{width:250px;border-right:1px solid var(--bd)}
+  #right{width:290px;border-left:1px solid var(--bd)}
+  .pane-h{
+    padding:8px 10px;font-size:12px;font-weight:500;color:var(--tx2);
+    border-bottom:1px solid var(--bd);background:var(--bg3);
+    display:flex;align-items:center;gap:6px;
+    cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:none;
+  }
+  .pane-h:hover{color:var(--tx)}
+  .pcaret{font-size:10px;color:var(--tx3);width:11px;flex:0 0 auto}
+  .pane-b.folded{display:none}
+  .pane-b{overflow:auto;padding:8px;flex:1;min-height:0}
+
+  #viewport{position:relative;flex:1;min-width:0;background:#fbfbf9}
+  #viewport canvas{display:block}
+  #labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+
+  .lbl{
+    font-size:11px;line-height:1.3;padding:2px 6px;border-radius:4px;
+    background:rgba(255,255,255,.92);border:1px solid var(--bd2);
+    color:var(--tx);white-space:nowrap;
+    box-shadow:0 1px 2px rgba(0,0,0,.06);
+  }
+  .lbl.sel{background:var(--acc-bg);border-color:var(--acc);color:var(--acc)}
+  .lbl.exp{background:#fcebeb;border-color:#e24b4a;color:#a32d2d}
+
+  .tree-row{
+    display:flex;align-items:center;gap:4px;padding:3px 4px;border-radius:4px;
+    cursor:pointer;font-size:12px;
+  }
+  .tree-row:hover{background:var(--bg3)}
+  .tree-row.sel{background:var(--acc-bg);color:var(--acc)}
+  .tree-row .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tree-row .tag{font-size:10px;color:var(--tx3);border:1px solid var(--bd2);border-radius:3px;padding:0 3px}
+  .tw{cursor:pointer;color:var(--tx3);width:12px;text-align:center;user-select:none;flex:none}
+  .dot{width:8px;height:8px;border-radius:2px;flex:none}
+
+  .fld{display:flex;flex-direction:column;gap:3px;margin-bottom:8px}
+  .fld > span{font-size:11px;color:var(--tx2)}
+  .row3{display:flex;gap:4px}
+  .row3 > *{flex:1;min-width:0}
+  .grp{border:1px solid var(--bd);border-radius:6px;padding:8px;margin-bottom:8px}
+  .grp-t{font-size:11px;color:var(--tx2);margin-bottom:6px}
+
+  .split{background:var(--bg3);border:1px dashed var(--bd2);border-radius:6px;padding:8px;margin-bottom:8px}
+  .split .r{display:flex;gap:5px;align-items:center;margin-bottom:5px}
+  .split .r > span{font-size:11px;color:var(--tx2);flex:none;width:46px}
+  .split .r select,.split .r input{flex:1;min-width:0}
+  .split .presets{display:flex;gap:4px;flex-wrap:wrap;margin:2px 0 6px}
+  .split .presets button{flex:1 1 auto;padding:3px 6px;font-size:11px}
+
+  .cav{border:1px solid var(--bd);border-radius:5px;padding:6px;margin-bottom:6px;background:var(--bg2)}
+  .cav-t{display:flex;align-items:center;gap:4px;margin-bottom:4px}
+  .cav-t input{flex:1}
+  .cav-t button{padding:2px 6px;font-size:11px}
+
+  .rem{border:1px solid var(--bd);border-radius:6px;padding:6px 8px;margin-bottom:6px;font-size:12px}
+  .rem.exp{border-color:#f09595;background:#fcebeb}
+  .rem .t{font-weight:500}
+  .rem .s{font-size:11px;color:var(--tx2)}
+  .hint{font-size:11px;color:var(--tx3);line-height:1.5}
+
+  .hist{display:flex;gap:6px;align-items:baseline;padding:3px 5px;border-radius:4px;cursor:pointer;font-size:12px}
+  .hist:hover{background:var(--bg3)}
+  .hist.undone{opacity:.4}
+  .hist.cur{background:var(--acc-bg);color:var(--acc)}
+  .hist .ht{font-size:10px;color:var(--tx3);flex:none;font-variant-numeric:tabular-nums}
+  .hist.cur .ht{color:var(--acc)}
+  .hist .hn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hhint{font-weight:400;font-size:10px;color:var(--tx3);margin-left:auto}
+  /* ---- 其他作品 ---- */
+  #works .work{display:block;padding:5px 6px;border-radius:5px;text-decoration:none;color:var(--tx)}
+  #works .work:hover{background:var(--bg3)}
+  #works .work .wn{font-size:12px;color:var(--acc)}
+  #works .work .wd{font-size:11px;color:var(--tx3);margin-top:1px}
+  button:disabled{opacity:.35;cursor:default}
+  button:disabled:hover{background:var(--bg)}
+  .empty{font-size:12px;color:var(--tx3);padding:12px 4px;text-align:center}
+
+  #hud{
+    position:absolute;left:10px;bottom:10px;font-size:11px;color:var(--tx2);
+    background:rgba(255,255,255,.9);border:1px solid var(--bd);border-radius:6px;padding:6px 8px;
+    pointer-events:none;line-height:1.6;
+  }
+  #hud b{font-weight:500;color:var(--tx)}
+  /* ---- 只操作模式 ---- */
+  .seg{display:inline-flex;border:1px solid var(--bd);border-radius:6px;overflow:hidden;background:var(--bg2)}
+  .seg button{border:0;border-radius:0;border-right:1px solid var(--bd);padding:5px 9px;font-size:12px;background:transparent;color:var(--tx2)}
+  .seg button:last-child{border-right:0}
+  .seg button.on{background:var(--acc);color:#fff}
+  .tl{font-size:12px;color:var(--tx2);margin-right:2px}
+  .lbl.dim{opacity:.4}
+  /* ---- 搜索 ---- */
+  .srow{display:flex;gap:6px;align-items:center}
+  .qin{
+    flex:1;min-width:0;border:1px solid var(--bd);border-radius:5px;padding:4px 7px;
+    font-size:12px;background:var(--bg);color:var(--tx);font-family:inherit;
+  }
+  .qin:focus{outline:none;border-color:var(--acc)}
+  #qClear{padding:2px 9px}
+  #searchpane .hint{margin-top:5px}
+  mark{background:#ffe9a8;color:inherit;border-radius:2px;padding:0 1px}
+  .tree-row.hit{background:var(--acc-bg)}
+  #opmodeTip{
+    position:fixed;left:50%;top:52px;transform:translateX(-50%);z-index:55;display:none;
+    font-size:12px;padding:4px 14px;border-radius:20px;background:var(--acc-bg);
+    color:var(--acc);border:1px solid rgba(24,95,165,.3);pointer-events:none;
+  }
+  /* ---- 非模态提示（禁止原生 alert/confirm，避免焦点被抢走） ---- */
+  #toasts{
+    position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:80;
+    display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none;
+  }
+  .tst{
+    background:rgba(44,44,42,.94);color:#fff;font-size:12.5px;padding:8px 14px;
+    border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.18);max-width:76vw;
+    animation:tin .16s ease;
+  }
+  .tst.warn{background:#8a5a00}
+  .tst.err{background:#8c2f2f}
+  .tst.ok{background:#3b6d11}
+  @keyframes tin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  #askbar{
+    position:fixed;left:50%;top:86px;transform:translateX(-50%);z-index:90;display:none;
+    align-items:center;gap:10px;background:var(--bg);border:1px solid var(--bd2);
+    border-radius:8px;padding:10px 12px;box-shadow:0 10px 28px rgba(0,0,0,.18);
+    font-size:13px;max-width:80vw;
+  }
+  #askbar.on{display:flex}
+  #askbar .amsg{flex:1}
+  /* ---- 存档 JSON 面板：下载/文件选择被浏览器拦截时的兜底通道 ---- */
+  #jsonPane{
+    position:fixed;left:50%;top:76px;transform:translateX(-50%);z-index:95;display:none;
+    flex-direction:column;gap:8px;background:var(--bg);border:1px solid var(--bd2);
+    border-radius:8px;padding:12px;box-shadow:0 12px 32px rgba(0,0,0,.2);width:min(700px,90vw);
+  }
+  #jsonPane.on{display:flex}
+  #jsonPane .jhead{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500}
+  #jsonPane .jinfo{font-weight:400;color:var(--tx3);font-size:11.5px}
+  #jsonPane textarea{
+    width:100%;height:230px;resize:vertical;padding:8px;border:1px solid var(--bd);
+    border-radius:6px;background:var(--bg2);color:var(--tx);
+    font:11.5px/1.5 ui-monospace,Consolas,Menlo,monospace;
+  }
+  #jsonPane .jfoot{display:flex;align-items:center;gap:8px}
+  #jsonPane .jfoot .hint{flex:1}
+</style>
+</head>
+<body data-page-node-id="Ms26mGqBVFnqujvRDTmeMi">
+<div id="app" data-page-node-id="aJNJlERZEG3Fo3he56OFHo">
+  <div id="toolbar" data-page-node-id="bHger08cQRb8MF53YsyLdd">
+    <span class="brand" data-page-node-id="A2ppumT7Bt2Xbwh38t3UND">家庭仓库管理</span>
+    <button id="btnAddItem" data-page-node-id="EmfZT8nGLfW0X1qEAaPCvO">+ 物品</button>
+    <button id="btnAddBox" data-page-node-id="gVn2L1KQIwCzDvSsYWkRaY">+ 容器</button>
+    <button id="btnAddWall" title="实体：床、桌子、柜体、墙等不常移动或只用于占位的物体" data-page-node-id="ApFwI6HPbsAoM1gAqgH0Hc">+ 实体</button>
+    <button id="btnDel" class="danger" data-page-node-id="MldT28T5l0s4Sy5OrM8sl2">删除</button>
+    <button id="btnUndo" title="Ctrl+Z">撤销</button>
+    <button id="btnRedo" title="Ctrl+Shift+Z">重做</button>
+    <span class="sep"></span>
+    <span class="tl">只操作</span>
+    <span class="seg" id="opSeg">
+      <button data-op="all" class="on">全部</button>
+      <button data-op="container">容器</button>
+      <button data-op="item">物品</button>
+      <button data-op="blocker" title="床、桌子、墙体等">实体</button>
+    </span>
+    <button id="btnLift" title="开启后普通拖动即上下移动；关闭时按住 Shift 拖动才升降">升降锁定</button>
+    <button id="btnRelease" title="把键盘焦点交还给宿主窗口：若在别处打不了字，点这里或按 Esc">释放焦点</button>
+    <span class="sep" data-page-node-id="QKGBRjOaBeguMGSkDqtnxj"></span>
+    <button id="btnLocate">定位选中</button>
+    <button id="btnFit">全景</button>
+    <button id="btnRescue" title="把选中物体搬到暂存区">召回选中</button>
+    <button id="btnRescueStray" title="自动找出飞出场地边界的物体并搬回">召回散落</button>
+    <button id="btnRestore" title="把召回过的物体放回原来的容器">放回原处</button>
+    <span class="sep"></span>
+    <button id="btnFocus" data-page-node-id="eaj4Itsroa8rfRmLEMWabp">聚焦当前容器</button>
+    <button id="btnUnfocus" data-page-node-id="YEuDJWlpjvFwvzP4WD38Mg">退出聚焦</button>
+    <span class="sep" data-page-node-id="lO1zgtoYua04f48SGyWInH"></span>
+    <label class="f" data-page-node-id="NYx9x92B6ilEvERJhVMq5a">单位
+      <select id="selUnit" data-page-node-id="7HSSMXh8seG961yBERmp8A"><option value="mm" data-page-node-id="lO0PsjYUNiCCoaemFgmHqA">mm</option><option value="cm" selected data-page-node-id="5E7l1cmnzAyKHVexxY4I1G">cm</option><option value="m" data-page-node-id="AuIVWDPsRdY2vHHd2vBuxg">m</option></select>
+    </label>
+    <button id="btnSnap" class="on" data-page-node-id="6sNTKHeDH9BN6neUX0zH1x">网格吸附</button>
+    <select id="selGrid" data-page-node-id="qCQaE5o65Iojjp3JEq229l">
+      <option value="1" data-page-node-id="xUY0hx38glKuUsN4kWBTUR">1</option><option value="5" data-page-node-id="wETv7hIByNDpeZap7pDi6f">5</option>
+      <option value="10" selected data-page-node-id="xXiEG6exdRssh1uHLE49op">10</option><option value="50" data-page-node-id="uyIdmcZL2BDnhdkDGFUGSv">50</option><option value="100" data-page-node-id="2dRERHjOoG0GeZno1IXLFw">100</option>
+    </select>
+    <button id="btnSup" class="on" data-page-node-id="C9ZnjIGAbffnV2bzUDxfFb">落地吸附</button>
+    <button id="btnLabels" data-page-node-id="Jtwe9fYS5zOHU5OobUAdCK">全部标签</button>
+    <span class="grow" data-page-node-id="n1P9FHbgAhE0K77gSmIBgn"></span>
+    <button id="btnExport" data-page-node-id="s3Gm48wrD6yUc0a3Gyg4qX">导出存档</button>
+    <button id="btnCopySave" title="打开存档 JSON 面板：可一键复制或直接粘贴导入。下载/文件选择被浏览器拦截时用它">存档 JSON</button>
+    <button id="btnImport" data-page-node-id="D4FvHco66iGa6zS1WzJHJj">导入存档</button>
+    <button id="btnPasteImport" title="用粘贴的方式导入（文件选择框打不开时用）">粘贴导入</button>
+    <button id="btnReset" data-page-node-id="pBBq3KUw8NhHCVMt3hBQ44">重置示例</button>
+    <input type="file" id="fileIn" accept="application/json,.json" hidden data-page-node-id="CQsSNU6bffo93PA6FlzLZQ">
+  </div>
+  <div id="opmodeTip"></div>
+  <div id="toasts"></div>
+  <div id="askbar"><span class="amsg"></span><button id="askOk" class="on">确定</button><button id="askNo">取消</button></div>
+  <div id="jsonPane">
+    <div class="jhead"><span id="jpTitle">存档 JSON</span><span class="jinfo" id="jpInfo"></span></div>
+    <textarea id="jpText" spellcheck="false"></textarea>
+    <div class="jfoot">
+      <span class="hint" id="jpHint"></span>
+      <button id="jpCopy">复制</button>
+      <button id="jpMain" class="on">下载</button>
+      <button id="jpOpen" title="在新标签页里打开 JSON，用 Ctrl+S 保存">新窗口打开</button>
+      <button id="jpClose">关闭</button>
+    </div>
+  </div>
+
+  <div id="main" data-page-node-id="BBPllcyNDz0BydTTRV2KqV">
+    <aside id="left" data-page-node-id="6YKj6CqHPOzKgSxuINK0oT">
+      <div class="pane-h">搜索<span id="qcount" class="hhint"></span></div>
+      <div class="pane-b" id="searchpane" style="flex:0 0 auto">
+        <div class="srow">
+          <input id="q" class="qin" placeholder="名称 / 标签 / 类型 / 所在容器　（Enter 跳下一个）" autocomplete="off" spellcheck="false">
+          <button id="qClear" title="清空搜索">×</button>
+        </div>
+        <div id="qinfo" class="hint">搜名称 / 标签 / 类型 / 所在容器；Enter 逐个定位，/ 快速聚焦。</div>
+      </div>
+      <div class="pane-h" data-page-node-id="GtzbrG3tdxjNfFxxXnrjXU">结构树</div>
+      <div class="pane-b" id="tree" style="flex:0 0 auto;max-height:26%" data-page-node-id="dPXJ47W2d9MC3b4Ciyxk1V"></div>
+      <div class="pane-h" data-page-node-id="GIMv4hkX29CMngUHHYZMSI">显示类别</div>
+      <div class="pane-b" id="filters" data-page-node-id="Fpg38XCnX2tEp4VnJPzHMS" style="flex:0 0 auto;max-height:20%"></div>
+      <div class="pane-h" data-page-node-id="0BF7LPdyF31C10ZdAQrzK5">提醒</div>
+      <div class="pane-b" id="reminders" data-page-node-id="tutbrAF3zmi7YfpNWOZa8N" style="flex:0 0 auto;max-height:15%"></div>
+      <div class="pane-h">操作历史<span id="histHint" class="hhint"></span></div>
+      <div class="pane-b" id="history" style="flex:1 1 auto"></div>
+      <div class="pane-h">其他作品</div>
+      <div class="pane-b" id="works" style="flex:0 0 auto;max-height:18%"></div>
+    </aside>
+
+    <div id="viewport" data-page-node-id="Es9JrRGX77PyLXiGmD2Flq">
+      <div id="labels" data-page-node-id="2nDRlUy6XSHkyOmOIYepSa"></div>
+      <div id="hud" data-page-node-id="KNHQd3AREghrrNNAhHur8B"></div>
+    </div>
+
+    <aside id="right" data-page-node-id="RwxOljRZCpYMLKxJfYY0if">
+      <div class="pane-h" data-page-node-id="f6BwWkWFZoeb6drrHAICIP">属性</div>
+      <div class="pane-b" id="inspector" data-page-node-id="EySjm07Bho8YkmqCPpYlNw"></div>
+    </aside>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.169.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.169.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+/* ============================================================
+   0. 常量与单位
+   内部一律 mm 整数，单位只影响显示与输入
+   ============================================================ */
+const UNITS = { mm:1, cm:10, m:1000 };
+const UNIT_LABEL = { mm:'mm', cm:'cm', m:'m' };
+const TYPE_NAME = { container:'容器', item:'物品', blocker:'实体' };   // 实体 = 床/桌/墙等不常移动或只用于占位的物体
+const TYPE_COLOR = { container:0x378add, item:0xba7517, blocker:0x888780 };
+const LS_KEY = 'home-warehouse-v1';
+const SCHEMA = 1;
+
+let uid = 1;
+const newId = () => 'o' + (uid++).toString(36) + Date.now().toString(36).slice(-3);
+
+/* ============================================================
+   1. 状态
+   ============================================================ */
+const state = {
+  objects: [],
+  selectedId: null,
+  hoverId: null,
+  unit: 'cm',
+  grid: 10,
+  snapGrid: true,
+  snapSupport: true,
+  showAllLabels: false,
+  focusId: null,
+  filterTypes: new Set(['container','item','blocker']),
+  query: '',            // 搜索关键词
+  opMode: 'all',        // 只操作模式：'all' | 'container' | 'item' | 'blocker'
+  liftLock: false,      // 升降锁定：开启后普通拖动即上下移动
+  filterTags: new Set(),
+};
+
+const $ = s => document.querySelector(s);
+
+/* ============================================================
+   0.5 非模态提示 / 确认
+   绝不使用原生 alert/confirm —— 原生弹窗在嵌入浏览器（Electron / WebView）
+   里会抢走键盘焦点，甚至不显示，导致整个宿主应用都无法键盘输入，
+   必须切换窗口才能恢复。这里全部换成页面内浮层，永不抢焦点。
+   ============================================================ */
+function toast(msg, kind) {
+  const box = document.getElementById('toasts');
+  if (!box) return;
+  const el = document.createElement('div');
+  el.className = 'tst' + (kind ? ' ' + kind : '');
+  el.textContent = msg;
+  box.appendChild(el);
+  const life = kind === 'err' ? 4600 : 2600;
+  setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; }, life);
+  setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, life + 400);
+}
+
+let askResolve = null;
+function ask(msg, okLabel) {
+  return new Promise(resolve => {
+    const bar = document.getElementById('askbar');
+    if (!bar) { resolve(false); return; }
+    if (askResolve) { const prev = askResolve; askResolve = null; prev(false); }
+    bar.querySelector('.amsg').textContent = msg;
+    document.getElementById('askOk').textContent = okLabel || '确定';
+    bar.classList.add('on');
+    askResolve = resolve;
+  });
+}
+/** 把键盘焦点交还宿主窗口：嵌入浏览器抢焦点后，宿主（如 WorkBuddy）会打不了字 */
+function releaseFocus() {
+  const a = document.activeElement;
+  if (a && a !== document.body && typeof a.blur === 'function') a.blur();
+  try { window.blur(); } catch (_) {}
+}
+
+function closeAsk(v) {
+  const bar = document.getElementById('askbar');
+  if (bar) bar.classList.remove('on');
+  const r = askResolve; askResolve = null;
+  if (r) r(v);
+}
+const getObj = id => state.objects.find(o => o.id === id);
+const U = () => UNITS[state.unit];
+
+/** mm -> 当前单位的数值 */
+const toU = mm => mm / U();
+/** 当前单位数值 -> mm */
+const fromU = v => Math.round(v * U());
+/** 带单位的显示文本 */
+const fmt = mm => {
+  const v = mm / U();
+  const s = Math.abs(v - Math.round(v)) < 0.05 ? String(Math.round(v)) : v.toFixed(1);
+  return s + ' ' + UNIT_LABEL[state.unit];
+};
+const fmtVol = mm3 => {
+  const u = U();
+  const v = mm3 / (u*u*u);
+  return (Math.round(v*10)/10).toLocaleString('zh-CN') + ' ' + UNIT_LABEL[state.unit] + '³';
+};
+
+/* ============================================================
+   2. 几何 / 层级（纯函数，规则层）
+   坐标约定：pos 是「最小角点」，不是中心。y 向上，y=0 为地面。
+   物品的 pos 相对父容器原点；空腔只做归属与容量统计，不参与坐标变换。
+   ============================================================ */
+function worldMin(o, seen = new Set()) {
+  if (!o.parentId || seen.has(o.id)) return { x:o.pos.x, y:o.pos.y, z:o.pos.z };
+  const p = getObj(o.parentId);
+  if (!p) return { x:o.pos.x, y:o.pos.y, z:o.pos.z };
+  seen.add(o.id);
+  const pm = worldMin(p, seen);
+  return { x: pm.x + o.pos.x, y: pm.y + o.pos.y, z: pm.z + o.pos.z };
+}
+function worldAABB(o) {
+  const m = worldMin(o);
+  return { min:m, max:{ x:m.x+o.size.w, y:m.y+o.size.h, z:m.z+o.size.d } };
+}
+function volume(o) { return o.size.w * o.size.h * o.size.d; }
+function isDescendant(id, ancestorId) {
+  let cur = getObj(id);
+  let guard = 0;
+  while (cur && cur.parentId && guard++ < 64) {
+    if (cur.parentId === ancestorId) return true;
+    cur = getObj(cur.parentId);
+  }
+  return false;
+}
+/** 断开已存在的父子环（老存档可能已经成环），返回修复数量 */
+function breakCycles() {
+  let fixed = 0;
+  for (const o of state.objects) {
+    let cur = o, guard = 0;
+    while (cur && cur.parentId && guard++ < 256) {
+      if (cur.parentId === o.id) {      // 沿父链走回到自己 -> 成环
+        cur.parentId = null;
+        cur.cavityId = null;
+        fixed++;
+        break;
+      }
+      cur = getObj(cur.parentId);
+      if (!cur) break;
+    }
+  }
+  return fixed;
+}
+/** 从最外层到直接父级的名称链（用于"搜所在容器"） */
+function pathOf(o) {
+  const names = [];
+  let p = o && o.parentId ? getObj(o.parentId) : null;
+  let guard = 0;
+  while (p && guard++ < 64) { names.unshift(p.name); p = p.parentId ? getObj(p.parentId) : null; }
+  return names;
+}
+/** 单个对象是否命中关键词：名称 / 标签 / 类型名 / 所在容器路径 */
+function matchQuery(o, q) {
+  if (!q) return false;
+  const s = String(q).toLowerCase();
+  if ((o.name || '').toLowerCase().includes(s)) return true;
+  if ((o.tags || []).some(t => String(t).toLowerCase().includes(s))) return true;
+  if ((TYPE_NAME[o.type] || '').toLowerCase().includes(s)) return true;
+  return pathOf(o).join(' / ').toLowerCase().includes(s);
+}
+/** 命中的对象列表（保持 state.objects 原顺序） */
+function searchResults(q) {
+  const s = (q || '').trim();
+  if (!s) return [];
+  return state.objects.filter(o => matchQuery(o, s));
+}
+/** 命中项的所有祖先 id —— 搜索时结构树只保留这些分支 */
+function searchAncestors(q) {
+  const set = new Set();
+  const s = (q || '').trim();
+  if (!s) return set;
+  for (const o of state.objects) {
+    if (!matchQuery(o, s)) continue;
+    let p = o.parentId, guard = 0;
+    while (p && guard++ < 64) { set.add(p); const po = getObj(p); p = po ? po.parentId : null; }
+  }
+  return set;
+}
+function childrenOf(id) { return state.objects.filter(o => o.parentId === id); }
+function rootObjects() { return state.objects.filter(o => !o.parentId); }
+
+function cavityWorldRange(container, cav) {
+  const wm = worldMin(container);
+  const min = { x: wm.x + cav.pos.x, y: wm.y + cav.pos.y, z: wm.z + cav.pos.z };
+  return { min, max:{ x:min.x+cav.size.w, y:min.y+cav.size.h, z:min.z+cav.size.d } };
+}
+/** 体积 + 长宽比 -> 三边 */
+function sizeFromVolume(vol, ratio) {
+  const k = Math.cbrt(vol / (ratio.w * ratio.h * ratio.d));
+  return { w: Math.round(k*ratio.w), h: Math.round(k*ratio.h), d: Math.round(k*ratio.d) };
+}
+/** 点是否落在 AABB 内 */
+function insideAABB(p, b) {
+  return p.x >= b.min.x && p.x <= b.max.x &&
+         p.y >= b.min.y && p.y <= b.max.y &&
+         p.z >= b.min.z && p.z <= b.max.z;
+}
+function overlapXZ(a, b) {
+  return a.min.x < b.max.x && a.max.x > b.min.x && a.min.z < b.max.z && a.max.z > b.min.z;
+}
+
+/* ---- 吸附：支撑面（向下找最近的顶面，不禁止重叠） ---- */
+function findSupportY(worldMinP, size, excludeId) {
+  let best = 0; // 地面
+  const box = { min: worldMinP, max:{ x:worldMinP.x+size.w, y:worldMinP.y+size.h, z:worldMinP.z+size.d } };
+  for (const o of state.objects) {
+    if (o.id === excludeId || o.type === 'blocker') continue;
+    if (isDescendant(o.id, excludeId)) continue;      // 自己的后代不能托住自己
+    const a = worldAABB(o);
+    if (!overlapXZ(a, box)) continue;
+    if (a.max.y <= worldMinP.y + 1 && a.max.y > best) best = a.max.y;
+  }
+  // 容器空腔的底面也是一个支撑面，否则放进箱子里的东西会直接穿到地面
+  for (const o of state.objects) {
+    if (o.type !== 'container' || o.id === excludeId) continue;
+    if (isDescendant(o.id, excludeId)) continue;
+    for (const c of o.cavities) {
+      const r = cavityWorldRange(o, c);
+      if (!overlapXZ(r, box)) continue;
+      if (r.min.y <= worldMinP.y + 1 && r.min.y > best) best = r.min.y;
+    }
+  }
+  return best;
+}
+/* ---- 吸附：空腔归属（取体积最小的命中空腔，即最内层）----
+   selfId 必须排除自己和自己的后代：容器自己的空腔就在自己体内，体积永远比外层小，
+   不排除的话拖动容器会把自己挂进自己的空腔，父子成环，坐标直接失控。 */
+function findCavityAt(worldPoint, selfId) {
+  let hit = null;
+  for (const o of state.objects) {
+    if (o.type !== 'container' || !o.cavities.length) continue;
+    if (selfId && (o.id === selfId || isDescendant(o.id, selfId))) continue;
+    for (const c of o.cavities) {
+      const r = cavityWorldRange(o, c);
+      if (insideAABB(worldPoint, r)) {
+        const v = c.size.w * c.size.h * c.size.d;
+        if (!hit || v < hit.v) hit = { container:o, cav:c, v };
+      }
+    }
+  }
+  return hit;
+}
+
+/* ============================================================
+   2b. 容器分割 + 召回 / 放回
+   ============================================================ */
+
+/** 把一段总长按份数切成若干段，段间留隔板厚度。weights 给权重即可不等分 */
+function computeSlices(total, count, thickness, weights) {
+  const usable = total - thickness * (count - 1);
+  if (count < 1 || usable <= 0) return null;
+  const w = (weights && weights.length === count && weights.every(v => v > 0))
+    ? weights : Array(count).fill(1);
+  const sum = w.reduce((a, b) => a + b, 0);
+  const out = [];
+  let cur = 0;
+  for (let i = 0; i < count; i++) {
+    out.push({ offset: Math.round(cur), length: Math.round(usable * (w[i] / sum)) });
+    cur += usable * (w[i] / sum) + thickness;
+  }
+  // 抹掉累计取整误差，让最后一段顶到边缘
+  const last = out[out.length - 1];
+  const drift = total - (last.offset + last.length);
+  if (Math.abs(drift) > 0) last.length += Math.round(drift);
+  return out;
+}
+
+/**
+ * 生成一套空腔。
+ * mode: 'y' 垂直分层（衣柜/货架/抽屉）| 'xz' 水平格子
+ * opts: { inset 壁厚, thickness 隔板厚, nY, nX, nZ, weightsY }
+ */
+function buildSplitCavities(container, mode, opts) {
+  const inset = Math.max(0, opts.inset ?? 20);
+  const thickness = Math.max(0, opts.thickness ?? 20);
+  const inner = {
+    w: container.size.w - inset * 2,
+    h: container.size.h - inset * 2,
+    d: container.size.d - inset * 2,
+  };
+  if (inner.w <= 0 || inner.h <= 0 || inner.d <= 0) return null;
+
+  const list = [];
+  if (mode === 'y') {
+    const n = Math.max(1, opts.nY ?? 3);
+    const slices = computeSlices(inner.h, n, thickness, opts.weightsY);
+    if (!slices) return null;
+    slices.forEach((s, i) => list.push({
+      id: 'c' + newId(),
+      name: '第 ' + (i + 1) + ' 层',
+      pos: { x: inset, y: inset + s.offset, z: inset },
+      size: { w: inner.w, h: s.length, d: inner.d },
+    }));
+  } else {
+    const nx = Math.max(1, opts.nX ?? 3);
+    const nz = Math.max(1, opts.nZ ?? 2);
+    const sx = computeSlices(inner.w, nx, thickness, opts.weightsX);
+    const sz = computeSlices(inner.d, nz, thickness, opts.weightsZ);
+    if (!sx || !sz) return null;
+    for (let i = 0; i < sx.length; i++) {
+      for (let j = 0; j < sz.length; j++) {
+        list.push({
+          id: 'c' + newId(),
+          name: '格 ' + (i + 1) + '-' + (j + 1),
+          pos: { x: inset + sx[i].offset, y: inset, z: inset + sz[j].offset },
+          size: { w: sx[i].length, h: inner.h, d: sz[j].length },
+        });
+      }
+    }
+  }
+  return list;
+}
+
+/** 重新摆放后，把容器里的东西按中心点重新挂到最近的新空腔（世界坐标不动，只改归属） */
+function reassignChildren(container) {
+  let n = 0;
+  for (const ch of childrenOf(container.id)) {
+    const wm = worldMin(ch);
+    const c = { x: wm.x + ch.size.w/2, y: wm.y + ch.size.h/2, z: wm.z + ch.size.d/2 };
+    const hit = findCavityAt(c, ch.id);
+    if (hit && hit.container.id === container.id) { ch.cavityId = hit.cav.id; n++; }
+    else ch.cavityId = null;
+  }
+  return n;
+}
+
+/* ---- 暂存区：把飞走的物体整齐码回来，并记住原位置以便放回 ---- */
+const RESCUE_ZONE = { x: -5000, z: -5000, w: 5000, d: 5000 };
+const WORLD_BOUNDS = { minX: -12000, maxX: 20000, minZ: -12000, maxZ: 20000, maxY: 10000 };
+
+function isStray(o) {
+  const wm = worldMin(o);
+  if (!isFinite(wm.x) || !isFinite(wm.y) || !isFinite(wm.z)) return true;
+  return wm.x < WORLD_BOUNDS.minX || wm.x > WORLD_BOUNDS.maxX
+      || wm.z < WORLD_BOUNDS.minZ || wm.z > WORLD_BOUNDS.maxZ
+      || wm.y > WORLD_BOUNDS.maxY || wm.y < -1;
+}
+
+/** 流式码放：大件优先，排满一行换行，行满堆叠下一层。容器连同内部物品整体搬运 */
+function rescueObjects(list) {
+  const ids = new Set(list.map(o => o.id));
+  const roots = list.filter(o => !o.parentId || !ids.has(o.parentId));
+  const items = roots.slice().sort((a, b) =>
+    (b.size.w * b.size.d) - (a.size.w * a.size.d));
+  const gap = 200;
+  let curX = RESCUE_ZONE.x, curZ = RESCUE_ZONE.z;
+  let rowDepth = 0, layerY = 0, layerHeight = 0;
+  let n = 0;
+  for (const o of items) {
+    if (curX + o.size.w > RESCUE_ZONE.x + RESCUE_ZONE.w) {
+      curX = RESCUE_ZONE.x; curZ += rowDepth + gap; rowDepth = 0;
+    }
+    if (curZ + o.size.d > RESCUE_ZONE.z + RESCUE_ZONE.d) {
+      curX = RESCUE_ZONE.x; curZ = RESCUE_ZONE.z; rowDepth = 0;
+      layerY += layerHeight + gap; layerHeight = 0;
+    }
+    if (!o.origin) o.origin = { parentId: o.parentId, cavityId: o.cavityId, pos: { ...o.pos } };
+    o.parentId = null; o.cavityId = null;
+    o.pos = { x: curX, y: layerY, z: curZ };
+    layerHeight = Math.max(layerHeight, o.size.h);
+    rowDepth = Math.max(rowDepth, o.size.d);
+    curX += o.size.w + gap;
+    n++;
+  }
+  return n;
+}
+
+/** 放回原处：原容器还在才放回，已被删掉的跳过 */
+function restoreObjects(list) {
+  let ok = 0, skipped = 0;
+  for (const o of list) {
+    const h = o.origin;
+    if (!h) continue;
+    if (h.parentId && !getObj(h.parentId)) { skipped++; continue; }
+    o.parentId = h.parentId;
+    o.cavityId = h.cavityId;
+    o.pos = { ...h.pos };
+    // 原容器可能已经被重新分割过，旧的空腔 id 已经不存在了
+    if (o.parentId) {
+      const p = getObj(o.parentId);
+      if (!p || !p.cavities.some(c => c.id === o.cavityId)) {
+        o.cavityId = null;
+        o.parentId = p ? o.parentId : null;
+      }
+    }
+    delete o.origin;
+    ok++;
+  }
+  return { ok, skipped };
+}
+
+/* ============================================================
+   3. 对象工厂
+   ============================================================ */
+function makeObj(type, opt = {}) {
+  const size = opt.size || { w:300, h:300, d:300 };
+  return {
+    id: newId(),
+    type,
+    name: opt.name || (TYPE_NAME[type] + ' ' + (state.objects.length + 1)),
+    parentId: opt.parentId || null,
+    cavityId: opt.cavityId || null,
+    pos: opt.pos ? { ...opt.pos } : { x:0, y:0, z:0 },
+    size,
+    ratio: opt.ratio ? { ...opt.ratio } : { w:1, h:1, d:1 },
+    tags: opt.tags || [],
+    expiry: opt.expiry || null,
+    remindBefore: opt.remindBefore ?? 7,
+    cycle: opt.cycle || null,
+    cavities: type === 'container' ? (opt.cavities || []) : [],
+    createdAt: Date.now(),
+  };
+}
+
+/* ============================================================
+   4. 场景
+   ============================================================ */
+const viewport = $('#viewport');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xfbfbf9);
+
+const camera = new THREE.PerspectiveCamera(50, 1, 1, 200000);
+camera.position.set(2200, 1600, 2600);
+
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+viewport.appendChild(renderer.domElement);
+
+const labelRenderer = new CSS2DRenderer({ element: $('#labels') });
+labelRenderer.domElement.style.position = 'absolute';
+labelRenderer.domElement.style.top = '0';
+labelRenderer.domElement.style.pointerEvents = 'none';
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.12;
+// 相机不许压到接近水平：否则拖拽射线与地面近乎平行，交点会跑到无穷远，物体一拖就飞
+controls.maxPolarAngle = Math.PI * 0.40;
+controls.target.set(1000, 500, 1000);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.72));
+const dl = new THREE.DirectionalLight(0xffffff, 0.65);
+dl.position.set(1800, 3000, 1500);
+scene.add(dl);
+const dl2 = new THREE.DirectionalLight(0xffffff, 0.28);
+dl2.position.set(-1500, 1200, -1200);
+scene.add(dl2);
+
+// 地面
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(60000, 60000),
+  new THREE.MeshLambertMaterial({ color:0xf1efe8 })
+);
+ground.rotation.x = -Math.PI/2;
+ground.position.y = -0.5;
+scene.add(ground);
+
+const grid = new THREE.GridHelper(60000, 120, 0xd3d1c7, 0xe8e6df);
+grid.position.y = 0;
+scene.add(grid);
+
+// 暂存区（还原平台）：飞走的物体会被「召回」到这里码放整齐
+{
+  const z = RESCUE_ZONE;
+  const pad = new THREE.Group();
+  const face = new THREE.Mesh(
+    new THREE.PlaneGeometry(z.w, z.d),
+    new THREE.MeshLambertMaterial({ color: 0xe1f5ee, transparent: true, opacity: 0.5 })
+  );
+  face.rotation.x = -Math.PI / 2;
+  face.position.set(z.x + z.w / 2, 1, z.z + z.d / 2);
+  pad.add(face);
+  const edgeGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(z.w, 30, z.d));
+  const edge = new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({ color: 0x0f6e56 }));
+  edge.position.set(z.x + z.w / 2, 15, z.z + z.d / 2);
+  pad.add(edge);
+  edgeGeo.dispose();
+  const lbl = makeLabel('暂存区', '');
+  lbl.position.set(z.x + z.w / 2, 320, z.z + z.d / 2);
+  pad.add(lbl);
+  scene.add(pad);
+}
+
+// 内容分组：所有 mesh 平铺，世界坐标自己算，避免父级 scale 污染
+const contentGroup = new THREE.Group();
+scene.add(contentGroup);
+const helpersGroup = new THREE.Group();
+scene.add(helpersGroup);
+
+const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+const selBox = new THREE.BoxHelper(new THREE.Mesh(boxGeo), 0x185fa5);
+selBox.material.linewidth = 2;
+selBox.visible = false;
+scene.add(selBox);
+
+const meshMap = new Map();   // id -> { mesh, label, leader, cavityLines[] }
+const pickables = [];
+const allPickables = [];   // 所有可见 mesh，只用于"点到不可操作物体时不取消选中"的穿透判断
+let activePointerId = null;
+
+/** 只操作模式：当前模式下该对象是否可被选中/拖拽。不可操作的仍然显示，只是不参与交互 */
+function isOperable(o) { return state.opMode === 'all' || o.type === state.opMode; }
+
+function disposeNode(n) {
+  if (n.geometry && n.geometry !== boxGeo) n.geometry.dispose();
+  if (n.material) (Array.isArray(n.material) ? n.material : [n.material]).forEach(m => m.dispose());
+  if (n.element && n.element.parentNode) n.element.parentNode.removeChild(n.element);
+}
+
+function clearScene() {
+  for (const rec of meshMap.values()) {
+    contentGroup.remove(rec.mesh);
+    rec.mesh.traverse(disposeNode);
+    // 引出线与标签挂在 contentGroup 上（不能挂 mesh，否则会被 mesh 的 scale 拉伸）
+    if (rec.lead) { contentGroup.remove(rec.lead); disposeNode(rec.lead); }
+    if (rec.label) { contentGroup.remove(rec.label); disposeNode(rec.label); }
+    (rec.cavityLines || []).forEach(l => { helpersGroup.remove(l); disposeNode(l); });
+  }
+  meshMap.clear();
+  pickables.length = 0;
+  allPickables.length = 0;
+}
+
+function makeLabel(text, cls) {
+  const el = document.createElement('div');
+  el.className = 'lbl' + (cls ? ' ' + cls : '');
+  el.textContent = text;
+  const obj = new CSS2DObject(el);
+  obj.center.set(0.5, 1);   // 锚点在标签底部中央，让标签浮在引出线顶端之上
+  return obj;
+}
+
+function buildScene() {
+  clearScene();
+  const visible = new Set(visibleObjects().map(o => o.id));
+  const focus = state.focusId ? getObj(state.focusId) : null;
+  const _q = (state.query || '').trim();
+  const hs = _q ? new Set(searchResults(_q).map(o => o.id)) : null;
+
+  for (const o of state.objects) {
+    if (!visible.has(o.id)) continue;
+    const wm = worldMin(o);
+    const isContainer = o.type === 'container';
+    const mat = new THREE.MeshLambertMaterial({
+      color: TYPE_COLOR[o.type],
+      transparent: true,
+      opacity: isContainer ? 0.22 : (o.type === 'blocker' ? 0.55 : 0.92),
+      depthWrite: !isContainer,
+    });
+    const mesh = new THREE.Mesh(boxGeo, mat);
+    mesh.scale.set(o.size.w, o.size.h, o.size.d);
+    mesh.position.set(wm.x + o.size.w/2, wm.y + o.size.h/2, wm.z + o.size.d/2);
+    mesh.userData.id = o.id;
+    const operable = isOperable(o);
+    const dim = !operable || (hs && !hs.has(o.id));
+    if (dim) mat.color.lerp(new THREE.Color(0xdad8d0), hs && !hs.has(o.id) ? 0.72 : 0.6);   // 去饱和：不可操作 / 未命中搜索
+    contentGroup.add(mesh);
+    allPickables.push(mesh);
+    if (operable) pickables.push(mesh);
+
+    // 引出标签：从顶面中心向上引一段线再挂 HTML 标签
+    const off = Math.max(120, o.size.h * 0.35);
+    const leadGeo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, o.size.h/2, 0),
+      new THREE.Vector3(0, o.size.h/2 + off, 0),
+    ]);
+    const lead = new THREE.Line(leadGeo, new THREE.LineBasicMaterial({ color:0xb4b2a9 }));
+    lead.position.copy(mesh.position);
+    contentGroup.add(lead);
+
+    const label = makeLabel(o.name, dim ? 'dim' : '');
+    label.position.set(
+      wm.x + o.size.w/2,
+      wm.y + o.size.h/2 + off,
+      wm.z + o.size.d/2
+    );
+    contentGroup.add(label);
+
+    // 容器空腔虚线框
+    const cavityLines = [];
+    if (isContainer && o.cavities.length) {
+      for (const c of o.cavities) {
+        const cm = { x: wm.x + c.pos.x, y: wm.y + c.pos.y, z: wm.z + c.pos.z };
+        const g = new THREE.BoxGeometry(c.size.w, c.size.h, c.size.d);
+        const eg = new THREE.EdgesGeometry(g);
+        const line = new THREE.LineSegments(eg, new THREE.LineBasicMaterial({ color:0x0f6e56 }));
+        line.position.set(cm.x + c.size.w/2, cm.y + c.size.h/2, cm.z + c.size.d/2);
+        helpersGroup.add(line);
+        cavityLines.push(line);
+        g.dispose();
+      }
+    }
+
+    meshMap.set(o.id, { mesh, label, lead, cavityLines, obj:o, labelOffset: off });
+  }
+  updateLabelVisibility();
+  updateSelectionBox();
+}
+
+function updateLabelVisibility() {
+  const _q = (state.query || '').trim();
+  const _hits = _q ? new Set(searchResults(_q).map(o => o.id)) : null;
+  for (const [id, rec] of meshMap) {
+    const o = rec.obj;
+    const show = state.showAllLabels
+      || id === state.selectedId
+      || id === state.hoverId
+      || (_hits ? _hits.has(id) : false)
+      || o.type === 'container'
+      || (o.expiry && daysTo(o.expiry) !== null && daysTo(o.expiry) <= o.remindBefore);
+    rec.label.visible = show;
+    rec.lead.visible = show;
+    const el = rec.label.element;
+    el.classList.toggle('sel', id === state.selectedId);
+    el.classList.toggle('exp', !!(o.expiry && daysTo(o.expiry) !== null && daysTo(o.expiry) <= o.remindBefore));
+  }
+}
+
+function updateSelectionBox() {
+  const rec = state.selectedId ? meshMap.get(state.selectedId) : null;
+  if (rec) { selBox.setFromObject(rec.mesh); selBox.visible = true; }
+  else selBox.visible = false;
+}
+
+function resize() {
+  const w = viewport.clientWidth, h = viewport.clientHeight;
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+  labelRenderer.setSize(w, h);
+}
+addEventListener('resize', resize);
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  if (state.selectedId && meshMap.has(state.selectedId)) {
+    selBox.setFromObject(meshMap.get(state.selectedId).mesh);
+  }
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+}
+
+/* ============================================================
+   5. 视图过滤
+   ============================================================ */
+function visibleObjects() {
+  return state.objects.filter(o => {
+    if (!state.filterTypes.has(o.type)) return false;
+    if (state.filterTags.size) {
+      const has = o.tags.some(t => state.filterTags.has(t));
+      if (!has) return false;
+    }
+    if (state.focusId) {
+      if (o.id === state.focusId) return true;
+      return isDescendant(o.id, state.focusId);
+    }
+    return true;
+  });
+}
+
+/* ============================================================
+   6. 交互：选中 / 拖拽 / 吸附
+   默认锁水平面拖动；按住 Alt 切换为朝向相机的垂直面（升降）
+   ============================================================ */
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+const MAX_DRAG_STEP = 20000;   // mm，单帧移动上限，超过就判定为射线异常
+let drag = null;
+
+function setPointer(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  pointer.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+  pointer.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+}
+function pick() {
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(pickables, false);
+  return hits.length ? hits[0] : null;
+}
+
+renderer.domElement.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  setPointer(e);
+  const hit = pick();
+  if (!hit) {
+    // 只操作模式下：点到"不可操作"的物体时保持当前选中，不要清空
+    raycaster.setFromCamera(pointer, camera);
+    if (raycaster.intersectObjects(allPickables, false).length) return;
+    select(null);
+    return;
+  }
+  const id = hit.object.userData.id;
+  select(id);
+
+  const o = getObj(id);
+  if (!isOperable(o)) return;
+  const wm = worldMin(o);
+  const plane = new THREE.Plane();
+  const anchor = new THREE.Vector3(wm.x + o.size.w/2, wm.y, wm.z + o.size.d/2);
+  // 不再使用 Alt：Windows 下 Alt 会把焦点交给窗口菜单栏，keyup 常常丢失，
+  // 导致 Alt 逻辑上"卡住"，整个应用都无法键盘输入。改用 Shift + 可选升降锁定。
+  const vertical = state.liftLock || e.shiftKey;
+  if (!vertical) {
+    plane.set(new THREE.Vector3(0,1,0), -wm.y);
+  } else {
+    const n = new THREE.Vector3();
+    camera.getWorldDirection(n); n.y = 0;
+    if (n.lengthSq() < 1e-6) n.set(0,0,1);
+    n.normalize();
+    plane.set(n, -n.dot(anchor));
+  }
+  const start = new THREE.Vector3();
+  raycaster.setFromCamera(pointer, camera);
+  if (!raycaster.ray.intersectPlane(plane, start)) return;
+
+  drag = {
+    id,
+    plane, vertical,
+    grabOffset: new THREE.Vector3(start.x - wm.x, start.y - wm.y, start.z - wm.z),
+    last: { x: wm.x, y: wm.y, z: wm.z },
+    moved: false,
+  };
+  controls.enabled = false;
+  activePointerId = e.pointerId;
+  try { renderer.domElement.setPointerCapture(e.pointerId); } catch (_) {}
+});
+
+/** 异常中断时强制复位拖拽状态，避免指针捕获卡住导致后续交互全废 */
+function cancelDrag() {
+  drag = null;
+  controls.enabled = true;
+  if (activePointerId !== null) {
+    try { renderer.domElement.releasePointerCapture(activePointerId); } catch (_) {}
+    activePointerId = null;
+  }
+}
+renderer.domElement.addEventListener('pointercancel', cancelDrag);
+renderer.domElement.addEventListener('lostpointercapture', () => { if (drag) cancelDrag(); });
+addEventListener('blur', () => {
+  cancelDrag();
+  // 主动交还焦点：页面内输入框若仍持有焦点，宿主应用的键盘输入会被吞掉
+  const a = document.activeElement;
+  if (a && a !== document.body && typeof a.blur === 'function') a.blur();
+});
+document.addEventListener('visibilitychange', () => { if (document.hidden) cancelDrag(); });
+
+renderer.domElement.addEventListener('pointermove', e => {
+  setPointer(e);
+  if (drag) {
+    raycaster.setFromCamera(pointer, camera);
+    const p = new THREE.Vector3();
+    if (!raycaster.ray.intersectPlane(drag.plane, p)) return;
+    const nx = p.x - drag.grabOffset.x;
+    const ny = p.y - drag.grabOffset.y;
+    const nz = p.z - drag.grabOffset.z;
+    // 保险：单次移动超过 20m 一定是射线打飞了（相机贴地/数值异常），直接丢弃这一帧
+    const dx = nx - drag.last.x, dy = ny - drag.last.y, dz = nz - drag.last.z;
+    if (dx*dx + dy*dy + dz*dz > MAX_DRAG_STEP * MAX_DRAG_STEP) return;
+    drag.last = { x: nx, y: ny, z: nz };
+    applyDrag(nx, ny, nz);
+    drag.moved = true;
+    return;
+  }
+  const hit = pick();
+  const id = hit ? hit.object.userData.id : null;
+  if (id !== state.hoverId) {
+    state.hoverId = id;
+    updateLabelVisibility();
+    renderer.domElement.style.cursor = id ? 'grab' : '';
+  }
+});
+
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!drag) return;
+  const o = getObj(drag.id);
+  controls.enabled = true;
+  try { renderer.domElement.releasePointerCapture(e.pointerId); } catch (_) {}
+  activePointerId = null;
+  const moved = drag.moved;
+  const movedName = o ? o.name : '';
+  if (moved && o) finishDrop(o);
+  drag = null;
+  refreshAll(moved ? '移动 ' + movedName : null);
+});
+
+/** 把「目标世界最小角点」写回对象（自动处理父容器局部坐标 + 网格吸附） */
+function applyDrag(wx, wy, wz) {
+  const o = getObj(drag.id);
+  if (!o) return;
+  let nm = { x: wx, y: wy, z: wz };
+  if (state.snapGrid) {
+    const g = state.grid;
+    nm.x = Math.round(nm.x / g) * g;
+    nm.z = Math.round(nm.z / g) * g;
+    if (drag.vertical) nm.y = Math.round(nm.y / g) * g;
+  }
+  nm.y = Math.max(0, nm.y);
+  const p = o.parentId ? getObj(o.parentId) : null;
+  const base = p ? worldMin(p) : { x:0, y:0, z:0 };
+  o.pos = { x: nm.x - base.x, y: nm.y - base.y, z: nm.z - base.z };
+  syncMesh(o);
+}
+
+/** 松手：落地吸附 + 空腔归属 */
+function finishDrop(o) {
+  let wm = worldMin(o);
+  if (state.snapSupport) {
+    const sy = findSupportY(wm, o.size, o.id);
+    if (Math.abs(sy - wm.y) > 0.5) {
+      wm = { ...wm, y: sy };
+    }
+  }
+  const center = { x: wm.x + o.size.w/2, y: wm.y + o.size.h/2, z: wm.z + o.size.d/2 };
+  const hit = findCavityAt(center, o.id);
+  // 双保险：即便上面漏了，也绝不允许把自己挂进自己或自己的后代
+  const wouldCycle = hit && (hit.container.id === o.id || isDescendant(hit.container.id, o.id));
+  if (hit && !wouldCycle) {
+    const cw = worldMin(hit.container);
+    o.parentId = hit.container.id;
+    o.cavityId = hit.cav.id;
+    o.pos = { x: wm.x - cw.x, y: wm.y - cw.y, z: wm.z - cw.z };
+  } else if (o.parentId) {
+    // 拖出所有空腔 -> 脱离父级，转为世界坐标
+    o.parentId = null;
+    o.cavityId = null;
+    o.pos = { x: wm.x, y: wm.y, z: wm.z };
+  } else {
+    o.pos = { x: wm.x, y: wm.y, z: wm.z };
+  }
+  syncMesh(o);
+}
+
+/** 单个对象变化时只更新它的 mesh，不重建整个场景；后代要一起跟着动 */
+function syncMesh(o) {
+  const rec = meshMap.get(o.id);
+  if (rec) {
+    const wm = worldMin(o);
+    const cx = wm.x + o.size.w/2, cy = wm.y + o.size.h/2, cz = wm.z + o.size.d/2;
+    rec.mesh.position.set(cx, cy, cz);
+    rec.mesh.scale.set(o.size.w, o.size.h, o.size.d);
+    if (rec.lead) rec.lead.position.set(cx, cy, cz);
+    if (rec.label) rec.label.position.set(cx, cy + rec.labelOffset, cz);
+  }
+  for (const ch of childrenOf(o.id)) syncMesh(ch);
+}
+
+function select(id) {
+  state.selectedId = id;
+  updateSelectionBox();
+  updateLabelVisibility();
+  renderTree();
+  renderInspector();
+}
+
+/* ============================================================
+   7. 提醒计算
+   ============================================================ */
+const TODAY = () => new Date(new Date().setHours(0,0,0,0));
+function daysTo(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d)) return null;
+  return Math.round((d - TODAY()) / 86400000);
+}
+function addDays(dateStr, n) {
+  const d = dateStr ? new Date(dateStr + 'T00:00:00') : new Date();
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+function computeReminders() {
+  const out = [];
+  for (const o of state.objects) {
+    if (o.expiry) {
+      const d = daysTo(o.expiry);
+      if (d !== null && d <= o.remindBefore) {
+        out.push({ id:o.id, name:o.name, kind:'expiry', days:d,
+          text: d < 0 ? `已过期 ${-d} 天` : (d === 0 ? '今天到期' : `还剩 ${d} 天`) });
+      }
+    }
+    if (o.cycle && o.cycle.nextDue) {
+      const d = daysTo(o.cycle.nextDue);
+      if (d !== null && d <= (o.cycle.remindBefore ?? 3)) {
+        out.push({ id:o.id, name:o.name, kind:'cycle', days:d,
+          text: d < 0 ? `周期任务逾期 ${-d} 天` : (d === 0 ? '今天该做了' : `${d} 天后到期`) });
+      }
+    }
+  }
+  return out.sort((a,b) => a.days - b.days);
+}
+
+/* ============================================================
+   8. UI 渲染
+   ============================================================ */
+let treeCollapsed = new Set();
+
+/** 把命中的片段包成 <mark>，其余按原样输出（不使用 innerHTML，避免转义问题） */
+function highlightInto(el, text, q) {
+  const s = String(text == null ? '' : text);
+  el.textContent = '';
+  const k = (q || '').trim();
+  const i = k ? s.toLowerCase().indexOf(k.toLowerCase()) : -1;
+  if (i < 0) { el.textContent = s; return; }
+  el.appendChild(document.createTextNode(s.slice(0, i)));
+  const m = document.createElement('mark');
+  m.textContent = s.slice(i, i + k.length);
+  el.appendChild(m);
+  el.appendChild(document.createTextNode(s.slice(i + k.length)));
+}
+
+function renderTree() {
+  const host = $('#tree');
+  host.innerHTML = '';
+  if (!state.objects.length) {
+    host.innerHTML = '<div class="empty">还没有东西</div>';
+    return;
+  }
+  const visible = new Set(visibleObjects().map(o => o.id));
+  const q = (state.query || '').trim();
+  const hits = new Set(searchResults(q).map(o => o.id));
+  const ancestors = searchAncestors(q);
+  const walk = (parentId, depth) => {
+    const list = parentId === null ? rootObjects() : childrenOf(parentId);
+    for (const o of list) {
+      if (q && !hits.has(o.id) && !ancestors.has(o.id)) continue;   // 搜索时只留命中分支
+      const row = document.createElement('div');
+      row.className = 'tree-row' + (o.id === state.selectedId ? ' sel' : '') + (hits.has(o.id) ? ' hit' : '');
+      row.style.paddingLeft = (4 + depth * 12) + 'px';
+      if (!visible.has(o.id)) row.style.opacity = '0.38';
+
+      const kids = childrenOf(o.id);
+      const tw = document.createElement('span');
+      tw.className = 'tw';
+      tw.textContent = kids.length ? (treeCollapsed.has(o.id) ? '+' : '-') : '';
+      tw.onclick = ev => {
+        ev.stopPropagation();
+        if (!kids.length) return;
+        treeCollapsed.has(o.id) ? treeCollapsed.delete(o.id) : treeCollapsed.add(o.id);
+        renderTree();
+      };
+      row.appendChild(tw);
+
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      dot.style.background = '#' + TYPE_COLOR[o.type].toString(16).padStart(6,'0');
+      row.appendChild(dot);
+
+      const nm = document.createElement('span');
+      nm.className = 'nm';
+      highlightInto(nm, o.name, q);
+      row.appendChild(nm);
+
+      if (o.type === 'container' && o.cavities.length) {
+        const t = document.createElement('span');
+        t.className = 'tag';
+        t.textContent = o.cavities.length + '腔';
+        row.appendChild(t);
+      }
+      row.onclick = () => select(o.id);
+      host.appendChild(row);
+
+      const expanded = q ? ancestors.has(o.id) : !treeCollapsed.has(o.id);
+      if (kids.length && expanded) walk(o.id, depth + 1);
+    }
+  };
+  walk(null, 0);
+}
+
+function renderFilters() {
+  const host = $('#filters');
+  host.innerHTML = '';
+  for (const t of ['container','item','blocker']) {
+    const l = document.createElement('label');
+    l.className = 'f';
+    l.style.marginBottom = '4px';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = state.filterTypes.has(t);
+    cb.onchange = () => {
+      cb.checked ? state.filterTypes.add(t) : state.filterTypes.delete(t);
+      buildScene(); renderFilters();
+    };
+    l.appendChild(cb);
+    l.appendChild(document.createTextNode(TYPE_NAME[t]));
+    host.appendChild(l);
+  }
+  const tags = [...new Set(state.objects.flatMap(o => o.tags))].sort();
+  if (tags.length) {
+    const t = document.createElement('div');
+    t.className = 'grp-t';
+    t.style.marginTop = '8px';
+    t.textContent = '标签（选中则只显示这些）';
+    host.appendChild(t);
+    for (const tag of tags) {
+      const l = document.createElement('label');
+      l.className = 'f';
+      l.style.marginBottom = '4px';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = state.filterTags.has(tag);
+      cb.onchange = () => {
+        cb.checked ? state.filterTags.add(tag) : state.filterTags.delete(tag);
+        buildScene(); renderFilters();
+      };
+      l.appendChild(cb);
+      l.appendChild(document.createTextNode(tag));
+      host.appendChild(l);
+    }
+  }
+  const h = document.createElement('div');
+  h.className = 'hint';
+  h.style.marginTop = '8px';
+  h.textContent = state.focusId
+    ? '当前处于聚焦模式，只显示所选容器内部。'
+    : '提示：选中容器后点「聚焦当前容器」可只看内部。';
+  host.appendChild(h);
+}
+
+function renderReminders() {
+  const host = $('#reminders');
+  host.innerHTML = '';
+  const list = computeReminders();
+  if (!list.length) {
+    host.innerHTML = '<div class="empty">暂无临期与周期提醒</div>';
+    return;
+  }
+  for (const r of list) {
+    const d = document.createElement('div');
+    d.className = 'rem' + (r.days <= 0 ? ' exp' : '');
+    d.innerHTML = `<div class="t"></div><div class="s"></div>`;
+    d.querySelector('.t').textContent = r.name;
+    d.querySelector('.s').textContent =
+      (r.kind === 'expiry' ? '保质期 · ' : '周期 · ') + r.text + (r.days >= 0 ? `（${r.kind === 'expiry' ? '到期' : '应做'}日提醒）` : '');
+    d.style.cursor = 'pointer';
+    d.onclick = () => select(r.id);
+    host.appendChild(d);
+  }
+}
+
+function renderInspector() {
+  const host = $('#inspector');
+  const o = state.selectedId ? getObj(state.selectedId) : null;
+  if (!o) {
+    host.innerHTML = '<div class="empty">未选中任何物体<br><br>' +
+      '左键点选，按住左键拖动；<br>拖动时按住 Alt 可上下移动。</div>';
+    return;
+  }
+  host.innerHTML = '';
+
+  const mkField = (label, node) => {
+    const f = document.createElement('div');
+    f.className = 'fld';
+    const s = document.createElement('span'); s.textContent = label;
+    f.appendChild(s); f.appendChild(node);
+    host.appendChild(f);
+    return f;
+  };
+  const mkInput = (val, type, onch) => {
+    const i = document.createElement('input');
+    i.type = type; i.value = val;
+    i.onchange = () => onch(i.value);
+    return i;
+  };
+
+  // 名称
+  mkField('名称', mkInput(o.name, 'text', v => { o.name = v; renderTree(); syncLabel(o); commit('重命名'); }));
+
+  // 类型
+  const trow = document.createElement('div');
+  trow.className = 'hint';
+  trow.textContent = '类型：' + TYPE_NAME[o.type] +
+    (o.parentId ? '　·　位于「' + (getObj(o.parentId)?.name || '?') + '」' +
+      (o.cavityId ? ' 的 ' + (getObj(o.parentId)?.cavities.find(c => c.id === o.cavityId)?.name || '空腔') : '') : '　·　顶层');
+  host.appendChild(trow);
+
+  // 尺寸
+  const g = document.createElement('div');
+  g.className = 'grp';
+  g.innerHTML = '<div class="grp-t">尺寸（' + UNIT_LABEL[state.unit] + '）</div>';
+  const r3 = document.createElement('div');
+  r3.className = 'row3';
+  [['w','宽'],['h','高'],['d','深']].forEach(([k, lb]) => {
+    const f = document.createElement('div');
+    f.className = 'fld';
+    const s = document.createElement('span'); s.textContent = lb;
+    const i = mkInput((toU(o.size[k])).toFixed(o.size[k] % U() === 0 ? 0 : 1), 'number', v => {
+      o.size[k] = Math.max(1, fromU(parseFloat(v) || 0));
+      syncMesh(o); buildScene(); renderTree(); commit('调整尺寸'); renderInspector();
+    });
+    i.step = state.unit === 'm' ? '0.01' : (state.unit === 'cm' ? '0.5' : '1');
+    f.appendChild(s); f.appendChild(i);
+    r3.appendChild(f);
+  });
+  g.appendChild(r3);
+  const volRow = document.createElement('div');
+  volRow.className = 'hint';
+  volRow.style.marginTop = '4px';
+  volRow.textContent = '体积 ' + fmtVol(volume(o));
+  g.appendChild(volRow);
+  host.appendChild(g);
+
+  // 位置（局部）
+  const gp = document.createElement('div');
+  gp.className = 'grp';
+  gp.innerHTML = '<div class="grp-t">位置（相对' + (o.parentId ? '父容器' : '世界原点') + '，' + UNIT_LABEL[state.unit] + '）</div>';
+  const rp = document.createElement('div');
+  rp.className = 'row3';
+  ['x','y','z'].forEach(k => {
+    const f = document.createElement('div');
+    f.className = 'fld';
+    const s = document.createElement('span'); s.textContent = k.toUpperCase();
+    const i = mkInput((toU(o.pos[k])).toFixed(o.pos[k] % U() === 0 ? 0 : 1), 'number', v => {
+      o.pos[k] = fromU(parseFloat(v) || 0);
+      syncMesh(o); buildScene(); commit('调整位置');
+    });
+    f.appendChild(s); f.appendChild(i);
+    rp.appendChild(f);
+  });
+  gp.appendChild(rp);
+  host.appendChild(gp);
+
+  // 物品：标签 / 保质期 / 周期
+  if (o.type === 'item') {
+    const gi = document.createElement('div');
+    gi.className = 'grp';
+    gi.innerHTML = '<div class="grp-t">物品属性</div>';
+    gi.appendChild(mkField('标签（逗号分隔）',
+      mkInput(o.tags.join(','), 'text', v => {
+        o.tags = v.split(/[,，]/).map(s => s.trim()).filter(Boolean);
+        renderFilters(); renderTree(); commit('修改标签');
+      })));
+    gi.appendChild(mkField('保质期到期日',
+      mkInput(o.expiry || '', 'date', v => { o.expiry = v || null; syncLabel(o); renderReminders(); commit('修改保质期'); })));
+    gi.appendChild(mkField('提前提醒天数',
+      mkInput(String(o.remindBefore ?? 7), 'number', v => {
+        o.remindBefore = Math.max(0, parseInt(v) || 0); renderReminders(); commit('修改提醒');
+      })));
+    host.appendChild(gi);
+
+    const gc = document.createElement('div');
+    gc.className = 'grp';
+    gc.innerHTML = '<div class="grp-t">周期提醒</div>';
+    const has = !!o.cycle;
+    const toggle = document.createElement('button');
+    toggle.textContent = has ? '关闭周期提醒' : '开启周期提醒';
+    toggle.onclick = () => {
+      o.cycle = has ? null : { intervalDays:90, lastDone:null, nextDue:addDays(null, 90), remindBefore:3 };
+      renderInspector(); renderReminders(); commit(has ? '关闭周期提醒' : '开启周期提醒');
+    };
+    gc.appendChild(toggle);
+    if (o.cycle) {
+      const f1 = mkField('间隔天数', mkInput(String(o.cycle.intervalDays), 'number', v => {
+        o.cycle.intervalDays = Math.max(1, parseInt(v) || 1);
+        o.cycle.nextDue = addDays(o.cycle.lastDone, o.cycle.intervalDays);
+        renderReminders(); commit('修改周期提醒');
+      }));
+      gc.appendChild(f1);
+      const f2 = mkField('下次到期', mkInput(o.cycle.nextDue || '', 'date', v => {
+        o.cycle.nextDue = v || null; renderReminders(); commit('修改周期提醒');
+      }));
+      gc.appendChild(f2);
+      const done = document.createElement('button');
+      done.textContent = '标记已完成（推进下一周期）';
+      done.style.width = '100%';
+      done.onclick = () => {
+        const t = new Date().toISOString().slice(0,10);
+        o.cycle.lastDone = t;
+        o.cycle.nextDue = addDays(t, o.cycle.intervalDays);
+        renderInspector(); renderReminders(); commit('完成周期任务');
+      };
+      gc.appendChild(done);
+    }
+    host.appendChild(gc);
+  }
+
+  // 容器空腔
+  if (o.type === 'container') {
+    const gcav = document.createElement('div');
+    gcav.className = 'grp';
+    const head = document.createElement('div');
+    head.className = 'grp-t';
+    head.textContent = '内空腔（' + o.cavities.length + '）· 相对容器原点';
+    gcav.appendChild(head);
+
+    /* ---- 分割向导：选模式 + 填份数，自动生成一套空腔，不用手填坐标 ---- */
+    const numIn = (v, w) => {
+      const i = document.createElement('input');
+      i.type = 'number'; i.value = v; i.min = '0';
+      if (w) i.style.width = w;
+      return i;
+    };
+    const sp = document.createElement('div');
+    sp.className = 'split';
+
+    const spMode = document.createElement('select');
+    [['y','垂直分层（衣柜/货架）'], ['xz','水平格子']].forEach(([v, t]) => {
+      const op = document.createElement('option'); op.value = v; op.textContent = t;
+      spMode.appendChild(op);
+    });
+    const spNY = numIn('3'), spNX = numIn('3'), spNZ = numIn('2');
+    const spInset = numIn('20'), spTh = numIn('20');
+    const spW = document.createElement('input');
+    spW.type = 'text'; spW.placeholder = '层高占比，如 3,2,2';
+
+    const row = (label, ...nodes) => {
+      const r = document.createElement('div');
+      r.className = 'r';
+      const s = document.createElement('span'); s.textContent = label;
+      r.appendChild(s);
+      nodes.forEach(n => r.appendChild(n));
+      sp.appendChild(r);
+      return r;
+    };
+    const row3 = (...nodes) => {
+      const r = document.createElement('div');
+      r.className = 'row3';
+      nodes.forEach(n => r.appendChild(n));
+      sp.appendChild(r);
+      return r;
+    };
+
+    row('方式', spMode);
+    row3(spNY, spNX, spNZ);
+    row3(spInset, spTh);
+    row('占比', spW);
+
+    const presets = [
+      { lb:'衣柜 3 层', m:'y',  nY:3, th:20 },
+      { lb:'鞋柜 5 层', m:'y',  nY:5, th:18 },
+      { lb:'抽屉 4 抽', m:'y',  nY:4, th:16 },
+      { lb:'格子 3×2',  m:'xz', nX:3, nZ:2, th:20 },
+    ];
+    const pv = document.createElement('div');
+    pv.className = 'presets';
+    presets.forEach(p => {
+      const b = document.createElement('button');
+      b.textContent = p.lb;
+      b.onclick = () => doSplit({ mode:p.m, nY:p.nY, nX:p.nX, nZ:p.nZ, thickness:p.th });
+      pv.appendChild(b);
+    });
+    sp.appendChild(pv);
+
+    const doBtn = document.createElement('button');
+    doBtn.textContent = '生成空腔并替换';
+    doBtn.style.width = '100%';
+    doBtn.onclick = () => doSplit(null);
+    sp.appendChild(doBtn);
+
+    function unitHint(input) { return parseFloat(input.value) || 0; }
+    function syncModeUI() {
+      const isY = spMode.value === 'y';
+      spNY.disabled = !isY; spW.disabled = !isY;
+      spNX.disabled = isY;  spNZ.disabled = isY;
+      spNY.title = '层数'; spNX.title = '列数'; spNZ.title = '排数';
+    }
+    spMode.onchange = syncModeUI;
+    syncModeUI();
+
+    async function doSplit(override) {
+      const base = {
+        nY: Math.max(1, parseInt(spNY.value) || 1),
+        nX: Math.max(1, parseInt(spNX.value) || 1),
+        nZ: Math.max(1, parseInt(spNZ.value) || 1),
+        thickness: fromU(unitHint(spTh)),
+      };
+      const opt = Object.assign({ mode: spMode.value, inset: fromU(unitHint(spInset)), weightsY: null }, base, override || {});
+      if (!override) {
+        const ws = spW.value.split(/[,，]/).map(s => parseFloat(s)).filter(v => !isNaN(v) && v > 0);
+        if (ws.length) { opt.weightsY = ws; opt.nY = ws.length; }
+      }
+      const list = buildSplitCavities(o, opt.mode, opt);
+      if (!list) {
+        toast('分不出来：内部已经没有可用空间了。请减少份数、减小隔板厚度或壁厚。', 'err');
+        return;
+      }
+      if (list.some(c => c.size.w <= 0 || c.size.h <= 0 || c.size.d <= 0)) {
+        toast('算出来有尺寸为 0 的空间。请减少份数或隔板厚度。', 'err');
+        return;
+      }
+      if (o.cavities.length && !(await ask('将用 ' + list.length + ' 个空腔替换现有的 ' + o.cavities.length + ' 个。继续？', '替换'))) return;
+      o.cavities = list;
+      const moved = reassignChildren(o);
+      buildScene(); renderInspector(); renderTree();
+      commit(opt.mode === 'y' ? '分割为 ' + list.length + ' 层' : '分割为 ' + list.length + ' 格');
+      if (moved) console.log('已把 ' + moved + ' 个物品重新挂到新空腔');
+    }
+
+    gcav.appendChild(sp);
+
+    for (const c of o.cavities) {
+      const box = document.createElement('div');
+      box.className = 'cav';
+      const t = document.createElement('div');
+      t.className = 'cav-t';
+      const ni = mkInput(c.name, 'text', v => { c.name = v; renderTree(); syncLabel(o); commit('重命名空腔'); });
+      const del = document.createElement('button');
+      del.textContent = '×';
+      del.className = 'danger';
+      del.onclick = () => {
+        o.cavities = o.cavities.filter(x => x !== c);
+        for (const ch of childrenOf(o.id)) if (ch.cavityId === c.id) ch.cavityId = null;
+        buildScene(); renderInspector(); renderTree(); commit('删除空腔');
+      };
+      t.appendChild(ni); t.appendChild(del);
+      box.appendChild(t);
+
+      const pr = document.createElement('div');
+      pr.className = 'row3';
+      ['x','y','z'].forEach(k => {
+        const f = document.createElement('div');
+        f.className = 'fld';
+        const s = document.createElement('span'); s.textContent = k.toUpperCase();
+        const i = mkInput((toU(c.pos[k])).toFixed(0), 'number', v => {
+          const nv = fromU(parseFloat(v) || 0);
+          const d = nv - c.pos[k];
+          c.pos[k] = nv;
+          // 空腔移动时，属于该空腔的物品一起平移
+          for (const ch of childrenOf(o.id)) if (ch.cavityId === c.id) ch.pos[k] += d;
+          buildScene(); commit('移动空腔');
+        });
+        f.appendChild(s); f.appendChild(i);
+        pr.appendChild(f);
+      });
+      box.appendChild(pr);
+
+      const sr = document.createElement('div');
+      sr.className = 'row3';
+      [['w','宽'],['h','高'],['d','深']].forEach(([k, lb]) => {
+        const f = document.createElement('div');
+        f.className = 'fld';
+        const s = document.createElement('span'); s.textContent = lb;
+        const i = mkInput((toU(c.size[k])).toFixed(0), 'number', v => {
+          c.size[k] = Math.max(1, fromU(parseFloat(v) || 0));
+          buildScene(); commit('调整空腔尺寸');
+        });
+        f.appendChild(s); f.appendChild(i);
+        sr.appendChild(f);
+      });
+      box.appendChild(sr);
+
+      const used = childrenOf(o.id).filter(ch => ch.cavityId === c.id)
+        .reduce((s, ch) => s + volume(ch), 0);
+      const cap = c.size.w * c.size.h * c.size.d;
+      const pct = cap ? Math.min(999, Math.round(used / cap * 100)) : 0;
+      const bar = document.createElement('div');
+      bar.className = 'hint';
+      bar.textContent = `已用 ${pct}%　${fmtVol(used)} / ${fmtVol(cap)}`;
+      if (pct > 100) bar.style.color = '#a32d2d';
+      else if (pct > 80) bar.style.color = '#854f0b';
+      box.appendChild(bar);
+
+      gcav.appendChild(box);
+    }
+
+    const add = document.createElement('button');
+    add.textContent = '+ 添加空腔';
+    add.style.width = '100%';
+    add.onclick = () => {
+      const n = o.cavities.length;
+      const inset = 20;
+      o.cavities.push({
+        id: 'c' + newId(),
+        name: '空腔 ' + (n + 1),
+        pos: { x: inset, y: inset, z: inset },
+        size: {
+          w: Math.max(40, o.size.w - inset*2),
+          h: Math.max(40, Math.round(o.size.h / Math.max(1, n + 1)) - inset),
+          d: Math.max(40, o.size.d - inset*2),
+        },
+      });
+      buildScene(); renderInspector(); renderTree(); commit('添加空腔');
+    };
+    gcav.appendChild(add);
+    host.appendChild(gcav);
+  }
+
+  const hud = document.createElement('div');
+  hud.className = 'hint';
+  hud.style.marginTop = '8px';
+  hud.innerHTML = '世界坐标：' + (() => {
+    const w = worldMin(o);
+    return `(${fmt(w.x)}, ${fmt(w.y)}, ${fmt(w.z)})`;
+  })();
+  host.appendChild(hud);
+}
+
+function syncLabel(o) {
+  const rec = meshMap.get(o.id);
+  if (rec) rec.label.element.textContent = o.name;
+}
+
+function renderHud() {
+  const o = state.selectedId ? getObj(state.selectedId) : null;
+  $('#hud').innerHTML =
+    (state.liftLock ? '<b>拖动</b> = 上下移动（升降锁定已开）' : '拖动 = 水平移动　·　<b>Shift + 拖动</b> = 上下移动') + '　·　右键拖动 = 旋转视角　·　滚轮 = 缩放<br>' +
+    '<b>Ctrl+Z</b> 撤销　·　<b>F</b> 定位选中　·　<b>Esc</b> 取消选中并释放焦点　·　东西拖不见了点<b>全景</b>或<b>召回</b><br>' +
+    '网格 ' + state.grid + 'mm' + (state.snapGrid ? '（开）' : '（关）') +
+    '　·　落地吸附 ' + (state.snapSupport ? '开' : '关') +
+    (state.opMode !== 'all' ? '　·　<b>只操作' + OP_LABEL[state.opMode] + '</b>' : '') +
+    (o ? '　·　已选：<b>' + o.name + '</b>' : '') +
+    (state.focusId ? '　·　<b>聚焦中</b>' : '');
+}
+
+function refreshAll(label) {
+  buildScene();
+  renderTree();
+  renderFilters();
+  renderInspector();
+  renderReminders();
+  renderHud();
+  if (label) commit(label); else save();
+  renderHistory();
+}
+
+/* ---- 相机找回：东西拖到看不见的地方时靠这两个回来 ---- */
+function focusCameraOn(o) {
+  if (!o) return;
+  const a = worldAABB(o);
+  const c = { x:(a.min.x+a.max.x)/2, y:(a.min.y+a.max.y)/2, z:(a.min.z+a.max.z)/2 };
+  const r = Math.max(o.size.w, o.size.h, o.size.d);
+  const dist = Math.max(700, r * 3);
+  const dir = new THREE.Vector3().subVectors(camera.position, controls.target);
+  if (dir.lengthSq() < 1e-6) dir.set(1, 0.8, 1);
+  dir.normalize();
+  controls.target.set(c.x, c.y, c.z);
+  camera.position.copy(controls.target).addScaledVector(dir, dist);
+  controls.update();
+}
+
+/** 框住所有物体（忽略聚焦与过滤，目的就是找回被拖丢的东西）——不管拖到多远都能一键找回 */
+function fitAll() {
+  const list = state.objects;
+  if (!list.length) {
+    controls.target.set(1000, 500, 1000);
+    camera.position.set(2200, 1600, 2600);
+    controls.update();
+    return;
+  }
+  let mn = { x: Infinity, y: Infinity, z: Infinity };
+  let mx = { x: -Infinity, y: -Infinity, z: -Infinity };
+  for (const o of list) {
+    const a = worldAABB(o);
+    mn.x = Math.min(mn.x, a.min.x); mn.y = Math.min(mn.y, a.min.y); mn.z = Math.min(mn.z, a.min.z);
+    mx.x = Math.max(mx.x, a.max.x); mx.y = Math.max(mx.y, a.max.y); mx.z = Math.max(mx.z, a.max.z);
+  }
+  const c = { x:(mn.x+mx.x)/2, y:(mn.y+mx.y)/2, z:(mn.z+mx.z)/2 };
+  const r = Math.max(mx.x-mn.x, mx.y-mn.y, mx.z-mn.z);
+  controls.target.set(c.x, c.y, c.z);
+  camera.position.copy(controls.target)
+    .addScaledVector(new THREE.Vector3(1, 0.75, 1).normalize(), Math.max(900, r * 1.6));
+  controls.update();
+}
+
+/* ============================================================
+   9. 持久化：localStorage + JSON 导入导出
+   ============================================================ */
+function save() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(serialize()));
+  } catch (e) { console.warn('保存失败', e); }
+}
+
+/* ---- 撤销 / 重做 / 操作历史 ----
+   快照式：每次数据变更把整份 objects 序列化压栈，30 步上限。
+   快照只放内存，不写 localStorage——30 份快照会撑爆 5MB 配额。
+   代价是刷新页面后历史清空，可接受。 */
+const HISTORY_LIMIT = 30;
+const hist = {
+  items: [],        // [{ label, time, data }]，data 是操作「完成后」的完整快照
+  index: -1,
+  applying: false,  // 正在应用快照时，禁止再次入栈
+};
+const snapshotData = () => JSON.stringify(state.objects);
+const canUndo = () => hist.index > 0;
+const canRedo = () => hist.index < hist.items.length - 1;
+
+function commit(label) {
+  save();
+  if (hist.applying) return;
+  const data = snapshotData();
+  const cur = hist.items[hist.index];
+  if (cur && cur.data === data) return;                 // 状态没变，不记
+  // 同类操作 1.5 秒内合并，避免连续输入把历史刷屏
+  if (cur && cur.label === label && Date.now() - cur.time < 1500) {
+    cur.data = data; cur.time = Date.now();
+    renderHistory(); return;
+  }
+  hist.items.length = hist.index + 1;                   // 丢弃 redo 分支
+  hist.items.push({ label, time: Date.now(), data });
+  if (hist.items.length > HISTORY_LIMIT) hist.items.shift();
+  hist.index = hist.items.length - 1;
+  renderHistory();
+}
+
+function resetHistory(label) {
+  hist.items = [{ label: label || '初始状态', time: Date.now(), data: snapshotData() }];
+  hist.index = 0;
+  renderHistory();
+}
+
+/** 跳到某一步：index 之后的步骤仍保留，可重做回来 */
+function gotoHistory(i) {
+  if (i < 0 || i >= hist.items.length || i === hist.index) return;
+  hist.applying = true;
+  hist.index = i;
+  state.objects = JSON.parse(hist.items[i].data);
+  if (state.selectedId && !getObj(state.selectedId)) state.selectedId = null;
+  if (state.focusId && !getObj(state.focusId)) state.focusId = null;
+  refreshAll();
+  hist.applying = false;
+  renderHistory();
+}
+function undo() { if (canUndo()) gotoHistory(hist.index - 1); }
+function redo() { if (canRedo()) gotoHistory(hist.index + 1); }
+
+function renderHistory() {
+  const host = $('#history');
+  if (!host) return;
+  const bu = $('#btnUndo'), br = $('#btnRedo');
+  if (bu) bu.disabled = !canUndo();
+  if (br) br.disabled = !canRedo();
+  const hint = $('#histHint');
+  if (hint) hint.textContent = hist.index + 1 + '/' + hist.items.length;
+  host.innerHTML = '';
+  for (let i = hist.items.length - 1; i >= 0; i--) {
+    const it = hist.items[i];
+    const row = document.createElement('div');
+    row.className = 'hist' + (i === hist.index ? ' cur' : (i > hist.index ? ' undone' : ''));
+    const t = document.createElement('span');
+    t.className = 'ht';
+    t.textContent = new Date(it.time).toTimeString().slice(0, 5);
+    const nm = document.createElement('span');
+    nm.className = 'hn';
+    nm.textContent = it.label;
+    row.appendChild(t); row.appendChild(nm);
+    row.title = i === hist.index ? '当前状态'
+      : (i > hist.index ? '重做到这一步之后' : '回退到这一步之后');
+    row.onclick = () => gotoHistory(i);
+    host.appendChild(row);
+  }
+}
+function serialize() {
+  return {
+    schema: SCHEMA,
+    exportedAt: new Date().toISOString(),
+    unit: state.unit,
+    objects: state.objects,
+  };
+}
+function deserialize(data) {
+  if (!data || !Array.isArray(data.objects)) throw new Error('存档格式不正确');
+  state.objects = data.objects.map(o => ({
+    ...o,
+    pos: { ...o.pos }, size: { ...o.size },
+    ratio: o.ratio ? { ...o.ratio } : { w:1,h:1,d:1 },
+    tags: o.tags || [],
+    cavities: (o.cavities || []).map(c => ({ ...c, pos:{ ...c.pos }, size:{ ...c.size } })),
+  }));
+  if (data.unit && UNITS[data.unit]) state.unit = data.unit;
+  const fixed = breakCycles();
+  if (fixed) console.warn('检测到 ' + fixed + ' 处父子成环，已自动断开');
+  state.selectedId = null;
+  state.focusId = null;
+  treeCollapsed = new Set();
+}
+function load() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return false;
+    deserialize(JSON.parse(raw));
+    return true;
+  } catch (e) { console.warn('读取存档失败', e); return false; }
+}
+
+/* ============================================================
+   10. 示例数据
+   ============================================================ */
+function seed() {
+  uid = 1;
+  state.objects = [];
+  const today = new Date().toISOString().slice(0,10);
+
+  const wallA = makeObj('blocker', { name:'承重墙 · 北', size:{ w:4000, h:2600, d:200 }, pos:{ x:0, y:0, z:0 } });
+  const wallB = makeObj('blocker', { name:'承重墙 · 西', size:{ w:200, h:2600, d:3600 }, pos:{ x:0, y:0, z:0 } });
+  const bed = makeObj('blocker', { name:'床（实体）', size:{ w:1800, h:550, d:2000 }, pos:{ x:2600, y:0, z:400 } });
+  state.objects.push(wallA, wallB, bed);
+
+  const shelf = makeObj('container', {
+    name:'储物货架', size:{ w:1200, h:2000, d:500 }, pos:{ x:600, y:0, z:300 },
+    cavities: [
+      { id:'c1', name:'第一层', pos:{ x:20, y:20,   z:20 }, size:{ w:1160, h:600, d:460 } },
+      { id:'c2', name:'第二层', pos:{ x:20, y:680,  z:20 }, size:{ w:1160, h:600, d:460 } },
+      { id:'c3', name:'第三层', pos:{ x:20, y:1340, z:20 }, size:{ w:1160, h:600, d:460 } },
+    ],
+  });
+  state.objects.push(shelf);
+
+  const bin = makeObj('container', {
+    name:'杂物收纳箱', size:{ w:500, h:320, d:400 }, pos:{ x:150, y:40, z:20 },
+    parentId: shelf.id, cavityId: 'c1',
+    cavities: [{ id:'cbin', name:'箱内', pos:{ x:20, y:20, z:20 }, size:{ w:460, h:260, d:360 } }],
+  });
+  state.objects.push(bin);
+
+  // 衣柜：用分割向导生成不等高的三层（上层挂衣区高，下面两层叠放）
+  const wardrobe = makeObj('container', {
+    name: '主卧衣柜', size: { w: 1200, h: 2200, d: 600 }, pos: { x: 2600, y: 0, z: 2200 },
+  });
+  wardrobe.cavities = buildSplitCavities(wardrobe, 'y',
+    { inset: 20, thickness: 20, nY: 3, weightsY: [3, 2, 2] }) || [];
+  state.objects.push(wardrobe);
+
+  const put = (idx, name, size, tags) => {
+    const c = wardrobe.cavities[idx];
+    if (!c) return;
+    state.objects.push(makeObj('item', {
+      name, size, tags,
+      parentId: wardrobe.id, cavityId: c.id,
+      pos: { x: c.pos.x + 20, y: c.pos.y, z: c.pos.z + 20 },
+    }));
+  };
+  put(0, '挂起来的外套',  { w: 520, h: 760, d: 340 }, ['衣物']);
+  put(1, '叠放的毛衣',    { w: 400, h: 180, d: 400 }, ['衣物']);
+  put(2, '换季被褥',      { w: 520, h: 280, d: 440 }, ['床品']);
+
+  const items = [
+    { name:'大米 10kg', size:{ w:340, h:140, d:240 }, pos:{ x:40, y:720, z:60 }, cav:'c2',
+      tags:['食品','主食'], expiry: addDays(today, 240), remindBefore:30 },
+    { name:'食用油', size:{ w:120, h:280, d:120 }, pos:{ x:450, y:720, z:120 }, cav:'c2',
+      tags:['食品','调料'], expiry: addDays(today, 45), remindBefore:30 },
+    { name:'备用电池', size:{ w:160, h:60, d:110 }, pos:{ x:60, y:40, z:40 }, cav:'cbin',
+      tags:['耗材'], expiry: addDays(today, 900), remindBefore:60,
+      cycle:{ intervalDays:180, lastDone: addDays(today, -170), nextDue: addDays(today, 10), remindBefore:14 } },
+    { name:'感冒药', size:{ w:140, h:90, d:70 }, pos:{ x:300, y:40, z:60 }, cav:'cbin',
+      tags:['药品'], expiry: addDays(today, 20), remindBefore:30 },
+    { name:'净水器滤芯', size:{ w:180, h:180, d:180 }, pos:{ x:700, y:1400, z:120 }, cav:'c3',
+      tags:['耗材'], expiry:null,
+      cycle:{ intervalDays:90, lastDone: addDays(today, -85), nextDue: addDays(today, 5), remindBefore:7 } },
+    { name:'工具箱', size:{ w:420, h:200, d:280 }, pos:{ x:2200, y:0, z:400 },
+      tags:['工具'], expiry:null },
+    { name:'换季衣物', size:{ w:600, h:350, d:450 }, pos:{ x:2400, y:0, z:900 },
+      tags:['衣物'], expiry:null },
+  ];
+  for (const it of items) {
+    const { cav, ...rest } = it;
+    state.objects.push(makeObj('item', {
+      ...rest,
+      parentId: cav === 'cbin' ? bin.id : (cav ? shelf.id : null),
+      cavityId: cav || null,
+    }));
+  }
+  state.selectedId = null;
+  state.focusId = null;
+  treeCollapsed = new Set();
+}
+
+/* ============================================================
+   11. 工具栏与事件
+   ============================================================ */
+function addObject(type) {
+  const size = type === 'blocker' ? { w:1500, h:800, d:2000 }   // 实体默认按家具尺寸（床/桌），不再是薄墙
+             : type === 'container' ? { w:600, h:400, d:500 }
+             : { w:200, h:200, d:200 };
+  const o = makeObj(type, { size, pos:{ x: 800 + state.objects.length * 40, y:0, z: 800 } });
+  if (type === 'container') {
+    o.cavities.push({
+      id: 'c' + newId(), name:'内腔',
+      pos: { x:20, y:20, z:20 },
+      size: { w: size.w - 40, h: size.h - 40, d: size.d - 40 },
+    });
+  }
+  if (type === 'item') { o.tags = ['未分类']; }
+  state.objects.push(o);
+  state.selectedId = o.id;
+  refreshAll('添加 ' + TYPE_NAME[type]);
+}
+
+$('#btnAddItem').onclick = () => addObject('item');
+$('#btnAddBox').onclick = () => addObject('container');
+$('#btnAddWall').onclick = () => addObject('blocker');
+$('#btnDel').onclick = async () => {
+  const o = state.selectedId ? getObj(state.selectedId) : null;
+  if (!o) return;
+  if (!(await ask(`删除「${o.name}」？其中的物品会被一起删除。`, '删除'))) return;
+  const doomed = new Set([o.id]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const x of state.objects) {
+      if (x.parentId && doomed.has(x.parentId) && !doomed.has(x.id)) { doomed.add(x.id); changed = true; }
+    }
+  }
+  state.objects = state.objects.filter(x => !doomed.has(x.id));
+  state.selectedId = null;
+  if (state.focusId && doomed.has(state.focusId)) state.focusId = null;
+  refreshAll('删除 ' + o.name);
+};
+$('#btnFocus').onclick = () => {
+  const o = state.selectedId ? getObj(state.selectedId) : null;
+  if (!o || o.type !== 'container') { toast('请先选中一个容器', 'warn'); return; }
+  state.focusId = o.id;
+  refreshAll();
+};
+$('#btnUnfocus').onclick = () => { state.focusId = null; refreshAll(); };
+
+document.getElementById('askOk').onclick = () => closeAsk(true);
+document.getElementById('askNo').onclick = () => closeAsk(false);
+
+const OP_LABEL = { all: '全部', container: '容器', item: '物品', blocker: '实体' };
+const opSeg = document.getElementById('opSeg');
+opSeg.addEventListener('click', e => {
+  const b = e.target.closest('button[data-op]');
+  if (!b) return;
+  state.opMode = b.dataset.op;
+  for (const x of opSeg.querySelectorAll('button')) x.classList.toggle('on', x === b);
+  const tip = document.getElementById('opmodeTip');
+  if (state.opMode === 'all') { tip.style.display = 'none'; }
+  else {
+    tip.style.display = 'block';
+    tip.textContent = '只操作：' + OP_LABEL[state.opMode] + '　·　其余类型仍显示，但不参与选中与拖动';
+  }
+  const sel = state.selectedId ? getObj(state.selectedId) : null;
+  if (sel && !isOperable(sel)) { state.selectedId = null; state.hoverId = null; }
+  buildScene(); renderHud(); renderInspector();
+});
+document.getElementById('btnRelease').onclick = () => releaseFocus();
+document.getElementById('btnLift').onclick = e => {
+  state.liftLock = !state.liftLock;
+  e.target.classList.toggle('on', state.liftLock);
+  renderHud();
+};
+
+/* ---- 搜索 ---- */
+const qInput = document.getElementById('q');
+let searchCursor = -1;
+function applyQuery(v) {
+  state.query = v || '';
+  searchCursor = -1;
+  const list = searchResults((state.query || '').trim());
+  const info = document.getElementById('qinfo');
+  const cnt = document.getElementById('qcount');
+  if (cnt) cnt.textContent = state.query ? (list.length + ' 项') : '';
+  if (info) {
+    info.textContent = !state.query
+      ? '支持名称 / 标签 / 类型 / 所在容器；Enter 逐个定位，/ 快速聚焦。'
+      : (list.length ? '找到 ' + list.length + ' 项，按 Enter 逐个定位。' : '没有匹配的东西。');
+  }
+  buildScene(); renderTree(); renderInspector();
+}
+qInput.addEventListener('input', e => applyQuery(e.target.value));
+qInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const list = searchResults((state.query || '').trim());
+    if (!list.length) return;
+    searchCursor = (searchCursor + 1) % list.length;
+    const o = list[searchCursor];
+    select(o.id);
+    renderTree();
+    focusCameraOn(o);
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    qInput.value = '';
+    applyQuery('');
+    releaseFocus();
+  }
+});
+document.getElementById('qClear').onclick = () => {
+  qInput.value = '';
+  applyQuery('');
+  qInput.focus();
+};
+
+$('#btnUndo').onclick = () => undo();
+$('#btnRedo').onclick = () => redo();
+$('#btnLocate').onclick = () => {
+  const o = state.selectedId ? getObj(state.selectedId) : null;
+  if (!o) { toast('请先在结构树或场景中选中一个物体', 'warn'); return; }
+  focusCameraOn(o);
+};
+$('#btnFit').onclick = () => fitAll();
+
+$('#btnRescue').onclick = () => {
+  const o = state.selectedId ? getObj(state.selectedId) : null;
+  if (!o) { toast('请先选中要召回的物体', 'warn'); return; }
+  rescueObjects([o]);
+  refreshAll('召回 ' + o.name);
+  fitAll();
+};
+$('#btnRescueStray').onclick = () => {
+  const strays = state.objects.filter(isStray);
+  if (!strays.length) { toast('没有发现飞出场地边界的物体'); return; }
+  const n = rescueObjects(strays);
+  refreshAll('召回 ' + n + ' 个散落物体');
+  fitAll();
+  toast('已召回 ' + n + ' 个物体到暂存区，原位置已记住，随时可以「放回原处」。', 'ok');
+};
+$('#btnRestore').onclick = () => {
+  const list = state.objects.filter(x => x.origin);
+  if (!list.length) { toast('没有需要放回的物体（只有被召回过的物体才会记住原位）', 'warn'); return; }
+  const r = restoreObjects(list);
+  refreshAll('放回 ' + r.ok + ' 个物体');
+  toast(r.ok + ' 个物体已放回原处'
+    + (r.skipped ? '，' + r.skipped + ' 个因原容器已被删除而跳过' : ''));
+};
+
+$('#selUnit').onchange = e => { state.unit = e.target.value; refreshAll(); };
+$('#selGrid').onchange = e => { state.grid = parseInt(e.target.value); renderHud(); };
+$('#btnSnap').onclick = e => {
+  state.snapGrid = !state.snapGrid;
+  e.target.classList.toggle('on', state.snapGrid);
+  renderHud();
+};
+$('#btnSup').onclick = e => {
+  state.snapSupport = !state.snapSupport;
+  e.target.classList.toggle('on', state.snapSupport);
+  renderHud();
+};
+$('#btnLabels').onclick = e => {
+  state.showAllLabels = !state.showAllLabels;
+  e.target.classList.toggle('on', state.showAllLabels);
+  updateLabelVisibility();
+};
+
+/* 下载 JSON。原来的写法有三个问题：
+   1) a 标签没插入 DOM —— Firefox 与部分内核不会触发；
+   2) URL.revokeObjectURL 同步紧跟 click —— Chrome 会直接取消这次下载；
+   3) 预览面板是 iframe，若没有 allow-downloads 权限，下载会被静默拦截，且没有任何提示。
+   现在：入 DOM + 延迟 5s 再 revoke + 返回是否成功，失败时引导走「存档 JSON」面板。 */
+/** 当前环境能否真正触发下载。
+    嵌在 iframe（预览面板 / 文档内嵌）里时，Chrome 常因缺少 allow-downloads 权限
+    把 blob: 当成一次导航 —— 表现就是弹「获取打开此 blob 的应用」而不是保存文件。
+    这种情况下一律走「存档 JSON」面板。 */
+function downloadSupported() {
+  try {
+    const a = document.createElement('a');
+    if (a.download === undefined) return false;
+    if (window.self !== window.top) return false;   // 在 iframe 里：不冒险触发导航
+    return true;
+  } catch (_) { return false; }
+}
+
+function downloadJSON(filename, text) {
+  try {
+    const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.rel = 'noopener';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      try { URL.revokeObjectURL(url); } catch (_) {}
+      if (a.parentNode) a.parentNode.removeChild(a);
+    }, 5000);
+    return true;
+  } catch (e) {
+    console.warn('下载失败', e);
+    return false;
+  }
+}
+const saveFileName = () => 'warehouse-' + new Date().toISOString().slice(0, 10) + '.json';
+
+/** 存档 JSON 面板：导出（只读 + 复制 + 下载）与导入（可编辑 + 粘贴导入）共用 */
+function openJsonPane(mode) {
+  const pane = document.getElementById('jsonPane');
+  const ta = document.getElementById('jpText');
+  const copyBtn = document.getElementById('jpCopy');
+  const mainBtn = document.getElementById('jpMain');
+  if (mode === 'export') {
+    const text = JSON.stringify(serialize(), null, 2);
+    document.getElementById('jpTitle').textContent = '导出存档';
+    document.getElementById('jpInfo').textContent = state.objects.length + ' 个对象 · ' + (text.length / 1024).toFixed(1) + ' KB';
+    document.getElementById('jpHint').textContent = '下载被拦截时：点「复制」，粘贴到记事本另存为 .json 即可。';
+    ta.value = text;
+    ta.readOnly = true;
+    copyBtn.style.display = '';
+    mainBtn.textContent = '下载';
+    mainBtn.style.display = downloadSupported() ? '' : 'none';
+    document.getElementById('jpOpen').onclick = () => {
+      const url = URL.createObjectURL(new Blob([text], { type: 'application/json;charset=utf-8' }));
+      const w = window.open(url, '_blank');
+      if (!w) toast('新窗口被拦截，请用「复制」手动保存', 'warn');
+      setTimeout(() => { try { URL.revokeObjectURL(url); } catch (_) {} }, 30000);
+    };
+    mainBtn.onclick = () => {
+      if (downloadJSON(saveFileName(), ta.value)) toast('已触发下载', 'ok');
+      else toast('下载仍被拦截，请用「复制」手动保存', 'warn');
+    };
+  } else {
+    document.getElementById('jpTitle').textContent = '导入存档';
+    document.getElementById('jpInfo').textContent = '粘贴此前复制的 JSON';
+    document.getElementById('jpHint').textContent = '文件选择框打不开时，把 JSON 粘进这里再点「导入」。';
+    ta.value = '';
+    ta.readOnly = false;
+    copyBtn.style.display = 'none';
+    mainBtn.style.display = '';
+    mainBtn.textContent = '导入';
+    mainBtn.onclick = () => {
+      try {
+        const data = JSON.parse(ta.value);
+        deserialize(data);
+        refreshAll();
+        resetHistory('导入存档');
+        pane.classList.remove('on');
+        toast('导入成功，共 ' + state.objects.length + ' 个对象', 'ok');
+      } catch (err) { toast('导入失败：' + err.message, 'err'); }
+    };
+  }
+  pane.classList.add('on');
+}
+
+$('#btnExport').onclick = () => {
+  // iframe 里直接下载会被浏览器当成导航（弹「获取打开此 blob 的应用」），
+  // 所以这种情况直接打开面板，不再尝试 anchor 下载。
+  if (!downloadSupported()) {
+    openJsonPane('export');
+    toast('当前窗口不支持直接下载，请用「复制」保存，或点「新窗口打开」', 'warn');
+    return;
+  }
+  const done = downloadJSON(saveFileName(), JSON.stringify(serialize(), null, 2));
+  toast(done ? '已导出 ' + state.objects.length + ' 个对象' : '导出失败，请点「存档 JSON」手动复制', done ? 'ok' : 'err');
+};
+$('#btnCopySave').onclick = () => openJsonPane('export');
+document.getElementById('jpClose').onclick = () => document.getElementById('jsonPane').classList.remove('on');
+document.getElementById('jpCopy').onclick = async () => {
+  const ta = document.getElementById('jpText');
+  let done = false;
+  try { await navigator.clipboard.writeText(ta.value); done = true; }
+  catch (_) {
+    try {
+      ta.removeAttribute('readonly');
+      ta.select();
+      done = document.execCommand('copy');
+      ta.setAttribute('readonly', 'readonly');
+    } catch (__) {}
+  }
+  toast(done ? '已复制到剪贴板' : '复制失败，请手动点进文本框全选复制', done ? 'ok' : 'warn');
+};
+$('#btnImport').onclick = () => $('#fileIn').click();
+document.getElementById('btnPasteImport').onclick = () => openJsonPane('import');
+$('#fileIn').onchange = e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      deserialize(JSON.parse(r.result));
+      refreshAll();
+      resetHistory('导入存档');
+      toast('导入成功，共 ' + state.objects.length + ' 个对象', 'ok');
+    } catch (err) { toast('导入失败：' + err.message, 'err'); }
+  };
+  r.readAsText(f);
+  e.target.value = '';
+};
+$('#btnReset').onclick = async () => {
+  if (!(await ask('重置为示例数据？当前内容会丢失。', '重置'))) return;
+  seed(); refreshAll(); resetHistory('重置为示例');
+};
+
+addEventListener('keydown', e => {
+  // 焦点在任何可输入元素里时一律不拦截，交给浏览器/宿主处理
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
+    e.preventDefault();
+    e.shiftKey ? redo() : undo();
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo(); return; }
+
+  // 带修饰键的单键一律放过，避免误吞宿主的快捷键
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+  if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); document.getElementById('btnDel').click(); return; }
+  if (e.key === 'Escape') {
+    const jp = document.getElementById('jsonPane');
+    if (jp && jp.classList.contains('on')) { jp.classList.remove('on'); return; }
+    closeAsk(false); state.focusId = null; select(null); refreshAll(); releaseFocus(); return;
+  }
+  if (e.key === '/' ) { e.preventDefault(); const qi = document.getElementById('q'); if (qi) { qi.focus(); qi.select(); } return; }
+  if (e.key === 'f' || e.key === 'F') { const o = state.selectedId ? getObj(state.selectedId) : null; if (o) focusCameraOn(o); }
+});
+
+/* ---- 其他作品（数据驱动：加作品只需往这个数组里添一项，不用动任何其他代码） ---- */
+const OTHER_WORKS = [
+  { name: '赛博占卜工具',   url: 'https://qtoumuotp.github.io/divination-hub/', desc: '赛博风格的在线占卜小站' },
+  { name: '赛博猪猪匹配',   url: 'https://qtoumuotp.github.io/cyber-piggy/',    desc: '赛博猪猪匹配测试' },
+  { name: '动植物仙缘测试', url: 'https://qtoumuotp.github.io/xianyuan/',       desc: '动植物仙缘测试' },
+];
+function renderWorks() {
+  const host = document.getElementById('works');
+  if (!host) return;
+  host.innerHTML = '';
+  for (const w of OTHER_WORKS) {
+    const a = document.createElement('a');
+    a.className = 'work';
+    a.href = w.url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    const n = document.createElement('div');
+    n.className = 'wn';
+    n.textContent = w.name;
+    const d = document.createElement('div');
+    d.className = 'wd';
+    d.textContent = w.desc;
+    a.appendChild(n);
+    a.appendChild(d);
+    host.appendChild(a);
+  }
+}
+
+/* ---- 左栏面板：点标题折叠 / 拖标题当分隔条（线跟着鼠标走，上下面板互换空间） ---- */
+function initLeftPanes() {
+  const left = document.getElementById('left');
+  if (!left) return;
+  const minH = 26;
+  let filler = null;                                   // 弹性面板：吸收布局余量（初始为操作历史 flex:1）
+  for (const b of left.querySelectorAll('.pane-b')) {
+    if ((b.style.flex || '').startsWith('1')) filler = b;
+  }
+  const setFixed = (el, h) => {
+    el.style.flex = '0 0 auto';
+    el.style.height = Math.max(minH, Math.round(h)) + 'px';
+    el.style.maxHeight = 'none';
+  };
+  const transferFiller = (exclude) => {                // 弹性面板被固定后，把角色移给最后一个可见面板
+    filler = null;
+    const bodies = [...left.querySelectorAll('.pane-b')].filter(b => b !== exclude && !b.classList.contains('folded'));
+    const last = bodies[bodies.length - 1];
+    if (last) {
+      filler = last;
+      last.style.flex = '1 1 auto';
+      last.style.minHeight = minH + 'px';
+      last.style.height = '';
+      last.style.maxHeight = '';
+    }
+  };
+  let press = null;
+  for (const head of left.querySelectorAll('.pane-h')) {
+    const body = head.nextElementSibling;
+    if (!body || !body.classList.contains('pane-b')) continue;
+    const caret = document.createElement('span');
+    caret.className = 'pcaret';
+    head.insertBefore(caret, head.firstChild);
+    const paint = () => { caret.textContent = body.classList.contains('folded') ? '▸' : '▾'; };
+    paint();
+    head.addEventListener('pointerdown', e => {
+      if (e.target.closest('button, input, select, a')) return;
+      const prev = head.previousElementSibling;
+      const prevBody = prev && prev.classList.contains('pane-b') ? prev : null;
+      press = {
+        head, body, prevBody,
+        y0: e.clientY,
+        h0: body.getBoundingClientRect().height,
+        p0: prevBody ? prevBody.getBoundingClientRect().height : 0,
+        moved: false,
+        resizable: !!(prevBody && !prevBody.classList.contains('folded') && !body.classList.contains('folded')),
+      };
+      try { head.setPointerCapture(e.pointerId); } catch (_) {}
+      e.preventDefault();
+    });
+    head.addEventListener('pointermove', e => {
+      if (!press || press.head !== head || !press.resizable) return;
+      let dy = e.clientY - press.y0;
+      if (!press.moved && Math.abs(dy) < 4) return;
+      press.moved = true;
+      // 夹取范围：上面的面板 ≥ minH，下面的面板 ≥ minH，且不超过侧栏总高
+      dy = Math.max(-(press.p0 - minH), Math.min(dy, Math.min(press.h0 - minH, left.clientHeight - 160 - press.p0)));
+      if (dy === 0 && press.moved) return;
+      const { body: b, prevBody: pb } = press;
+      if (pb === filler) {                    // 上面是弹性面板：固定它，弹性角色转移
+        setFixed(pb, press.p0 + dy);
+        transferFiller(pb);
+        if (filler && filler !== b) setFixed(b, press.h0 - dy);   // 新弹性面板若不是当前面板，则当前面板固定
+      } else if (b === filler) {              // 下面是弹性面板：它会自动收缩
+        setFixed(pb, press.p0 + dy);
+      } else {                                // 常规：上下互换 dy
+        setFixed(pb, press.p0 + dy);
+        setFixed(b, press.h0 - dy);
+      }
+    });
+    const end = e => {
+      if (!press || press.head !== head) return;
+      try { head.releasePointerCapture(e.pointerId); } catch (_) {}
+      const p = press; press = null;
+      if (!p.moved) {                         // 没拖动 = 单击 → 折叠/展开
+        body.classList.toggle('folded');
+        paint();
+      }
+    };
+    head.addEventListener('pointerup', end);
+    head.addEventListener('pointercancel', end);
+  }
+}
+
+/* ============================================================
+   12. 启动
+   ============================================================ */
+resize();
+if (!load()) seed();
+$('#selUnit').value = state.unit;
+$('#selGrid').value = String(state.grid);
+refreshAll();
+applyQuery('');
+renderWorks();
+initLeftPanes();
+resetHistory('初始状态');
+animate();
+
+console.log('家庭仓库管理原型已启动 · 对象数', state.objects.length);
+</script>
+</body>
+</html>
